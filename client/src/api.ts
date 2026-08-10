@@ -10,6 +10,19 @@ export interface SystemStatus {
   categories: Category[];
 }
 
+export interface HealthResponse {
+  status: string;
+  service: string;
+}
+
+export async function getHealthStatus(): Promise<HealthResponse> {
+  const res = await fetch(`${API_URL}/api/health`);
+  if (!res.ok) {
+    throw new Error(`Health check failed with status ${res.status}`);
+  }
+  return res.json();
+}
+
 // Issue 2 + Issue 4 — call the backend.
 // Steps: fetch `${API_URL}/api/health`; if not ok, throw.
 //        then fetch `${API_URL}/api/categories`; if not ok, throw.
@@ -19,3 +32,4 @@ export async function checkSystem(): Promise<SystemStatus> {
   // TODO(Issue 2 & 4): implement the two fetch calls described above.
   throw new Error("checkSystem not implemented yet");
 }
+

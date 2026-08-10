@@ -1,19 +1,26 @@
 import { useState } from "react";
-import { checkSystem, Category } from "./api.js";
+import { getHealthStatus, Category } from "./api.js";
 
 // UI states you must handle for Issue 4: idle, loading, success, error.
 type UiState = "idle" | "loading" | "success" | "error";
 
 export default function App() {
   const [state, setState] = useState<UiState>("idle");
+  const [errorMessage, setErrorMessage] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
   void categories;
 
   async function handleCheck() {
-    // TODO(Issue 4): set loading, call checkSystem(), then either
-    //   - success: store categories and show Online + the list, or
-    //   - error: show Offline + a useful message.
     setState("loading");
+    setErrorMessage("");
+    try {
+      await getHealthStatus();
+      setState("success");
+    } catch (err: unknown) {
+      setState("error");
+      const message = err instanceof Error ? err.message : "Unable to connect to TokTickIT API";
+      setErrorMessage(message || "Unable to connect to TokTickIT API");
+    }
   }
 
   return (
@@ -22,11 +29,29 @@ export default function App() {
         TokTickIT <span className="text-success">IT Service Desk</span>
       </h1>
 
-      <button className="btn btn-success" onClick={handleCheck} disabled={state === "loading"}>
+      <button className="btn btn-success mb-4" onClick={handleCheck} disabled={state === "loading"}>
         {state === "loading" ? "Loading…" : "Check System"}
       </button>
 
-      {/* TODO(Issue 4): render loading / success (Online + categories) / error (Offline) states. */}
+      {state === "loading" && (
+        <div className="text-muted mt-3">⌛ Loading...</div>
+      )}
+
+      {state === "success" && (
+        <div className="mt-3">
+          <p className="fw-bold mb-1">System Status: <span className="text-success">Online</span></p>
+        </div>
+      )}
+
+      {state === "error" && (
+        <div className="mt-3">
+          <p className="fw-bold text-danger mb-1">System Status: Offline</p>
+          <div className="alert alert-danger py-2 mt-2" role="alert">
+            {errorMessage}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

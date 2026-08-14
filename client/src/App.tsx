@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getHealthStatus, Category } from "./api.js";
+import { checkSystem, Category } from "./api.js";
 
 // UI states you must handle for Issue 4: idle, loading, success, error.
 type UiState = "idle" | "loading" | "success" | "error";
@@ -8,13 +8,13 @@ export default function App() {
   const [state, setState] = useState<UiState>("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
-  void categories;
 
   async function handleCheck() {
     setState("loading");
     setErrorMessage("");
     try {
-      await getHealthStatus();
+      const result = await checkSystem();
+      setCategories(result.categories);
       setState("success");
     } catch (err: unknown) {
       setState("error");
@@ -39,7 +39,16 @@ export default function App() {
 
       {state === "success" && (
         <div className="mt-3">
-          <p className="fw-bold mb-1">System Status: <span className="text-success">Online</span></p>
+          <p className="fw-bold mb-3">System Status: <span className="text-success">Online</span></p>
+
+          <h2 className="h6 fw-bold mb-2">Supported Request Categories:</h2>
+          <ol className="list-group list-group-numbered mb-3">
+            {categories.map((cat) => (
+              <li key={cat.id} className="list-group-item">
+                {cat.name}
+              </li>
+            ))}
+          </ol>
         </div>
       )}
 
@@ -54,4 +63,5 @@ export default function App() {
     </div>
   );
 }
+
 

@@ -1,0 +1,45 @@
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+
+export interface Category {
+  id: number;
+  name: string;
+}
+
+export interface SystemStatus {
+  online: boolean;
+  categories: Category[];
+}
+
+export interface HealthResponse {
+  status: string;
+  service: string;
+}
+
+export async function getHealthStatus(): Promise<HealthResponse> {
+  const res = await fetch(`${API_URL}/api/health`);
+  if (!res.ok) {
+    throw new Error(`Health check failed with status ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getCategories(): Promise<Category[]> {
+  const res = await fetch(`${API_URL}/api/categories`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch categories with status ${res.status}`);
+  }
+  return res.json();
+}
+
+// Issue 2 + Issue 4 — call the backend.
+// Steps: fetch `${API_URL}/api/health`; if not ok, throw.
+//        then fetch `${API_URL}/api/categories`; if not ok, throw.
+//        return { online: true, categories }.
+// Throwing on failure lets the UI show a single Offline/error state.
+export async function checkSystem(): Promise<SystemStatus> {
+  await getHealthStatus();
+  const categories = await getCategories();
+  return { online: true, categories };
+}
+
+

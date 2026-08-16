@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: toktickit-db
+    restart: always
+    environment:
+      POSTGRES_USER: toktickit
+      POSTGRES_PASSWORD: toktickit
+      POSTGRES_DB: toktickit
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

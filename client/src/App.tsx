@@ -1,67 +1,118 @@
 import { useState } from "react";
+import { RequesterProvider, useRequester } from "./context/RequesterContext.js";
+import { Header } from "./components/Header.js";
+import { RequesterSelector } from "./components/RequesterSelector.js";
 import { checkSystem, Category } from "./api.js";
 
-// UI states you must handle for Issue 4: idle, loading, success, error.
 type UiState = "idle" | "loading" | "success" | "error";
 
-export default function App() {
-  const [state, setState] = useState<UiState>("idle");
+function MainContent() {
+  const { currentRequester, isSwitching } = useRequester();
+  const [activeTab, setActiveTab] = useState<string>("my-tickets");
+
+  // Lab 1 System Check state for backward compatibility
+  const [systemState, setSystemState] = useState<UiState>("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
 
   async function handleCheck() {
-    setState("loading");
+    setSystemState("loading");
     setErrorMessage("");
     try {
       const result = await checkSystem();
       setCategories(result.categories);
-      setState("success");
+      setSystemState("success");
     } catch (err: unknown) {
-      setState("error");
-      const message = err instanceof Error ? err.message : "Unable to connect to TokTickIT API";
+      setSystemState("error");
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unable to connect to TokTickIT API";
       setErrorMessage(message || "Unable to connect to TokTickIT API");
     }
   }
 
   return (
-    <div className="container py-5" style={{ maxWidth: 640 }}>
-      <h1 className="h3 mb-4">
-        TokTickIT <span className="text-success">IT Service Desk</span>
-      </h1>
+    <div className="min-vh-100 d-flex flex-column" style={{ backgroundColor: "var(--page-bg)" }}>
+      <Header activeTab={activeTab} onNavigate={(tab) => setActiveTab(tab)} />
 
-      <button className="btn btn-success mb-4" onClick={handleCheck} disabled={state === "loading"}>
-        {state === "loading" ? "Loading…" : "Check System"}
-      </button>
-
-      {state === "loading" && (
-        <div className="text-muted mt-3">⌛ Loading...</div>
-      )}
-
-      {state === "success" && (
-        <div className="mt-3">
-          <p className="fw-bold mb-3">System Status: <span className="text-success">Online</span></p>
-
-          <h2 className="h6 fw-bold mb-2">Supported Request Categories:</h2>
-          <ol className="list-group list-group-numbered mb-3">
-            {categories.map((cat) => (
-              <li key={cat.id} className="list-group-item">
-                {cat.name}
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
-
-      {state === "error" && (
-        <div className="mt-3">
-          <p className="fw-bold text-danger mb-1">System Status: Offline</p>
-          <div className="alert alert-danger py-2 mt-2" role="alert">
-            {errorMessage}
+      <main className="container py-4 flex-grow-1" style={{ maxWidth: 1100 }}>
+        {/* Main interactive area: Persona selector or active persona dashboard */}
+        {!currentRequester || isSwitching ? (
+          <RequesterSelector />
+        ) : (
+          <div>
+            {/* Active Requester Welcome Card */}
+            <div className="zen-card mb-4">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <h1 className="h4 fw-bold mb-1" style={{ color: "var(--text-primary)" }}>
+                    Welcome, {currentRequester.name}
+                  </h1>
+                  <p className="text-muted small mb-0">
+                    Active Development Persona: <strong>{currentRequester.email}</strong>
+                  </p>
+                </div>
+                <span className="badge" style={{ backgroundColor: "var(--pale-green)", color: "var(--primary-green)", padding: "8px 12px", fontSize: "0.85rem" }}>
+                  Active Persona
+                </span>
+              </div>
+            </div>
           </div>
+        )}
+
+        {/* System Diagnostics Card (Ensures Lab 1 tests & system verification pass reliably) */}
+        <div className="zen-card mt-4">
+          <h2 className="h6 fw-bold mb-3" style={{ color: "var(--text-primary)" }}>
+            Service Desk <span style={{ color: "var(--primary-green)" }}>System Status & Diagnostics</span>
+          </h2>
+
+          <button
+            className="btn btn-zen-primary mb-3"
+            onClick={handleCheck}
+            disabled={systemState === "loading"}
+          >
+            {systemState === "loading" ? "Loading…" : "Check System"}
+          </button>
+
+          {systemState === "loading" && (
+            <div className="text-muted mt-2 small">⌛ Loading...</div>
+          )}
+
+          {systemState === "success" && (
+            <div className="mt-3">
+              <p className="fw-bold mb-2">
+                System Status: <span style={{ color: "var(--success-green)" }}>Online</span>
+              </p>
+              <h3 className="h6 fw-semibold mb-2">Supported Request Categories:</h3>
+              <ol className="list-group list-group-numbered mb-3">
+                {categories.map((cat) => (
+                  <li key={cat.id} className="list-group-item">
+                    {cat.name}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {systemState === "error" && (
+            <div className="mt-3">
+              <p className="fw-bold text-danger mb-1">System Status: Offline</p>
+              <div className="alert alert-danger py-2 mt-2" role="alert">
+                {errorMessage}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </main>
     </div>
   );
 }
 
-
+export default function App() {
+  return (
+    <RequesterProvider>
+      <MainContent />
+    </RequesterProvider>
+  );
+}

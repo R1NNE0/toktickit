@@ -11,7 +11,7 @@
 | PR | Branch | Reviewer verdict |
 |:---:|---|:---:|
 | #19 | `feat/lab2-spec-and-test-plan` | Approved |
-| #2 | `feat/lab2-database-and-seed` | Pending |
+| #20 | `feat/lab2-database-and-seed` | Approved |
 | #3 | `feat/lab2-requester-context` | Pending |
 | #4 | `feat/lab2-create-ticket` | Pending |
 | #5 | `feat/lab2-my-tickets` | Pending |
@@ -47,14 +47,34 @@
 
 ---
 
-### feat: database schema and idempotent seed data (Issue #2)
-- **PR Link:** 
+### feat(db): setup lab 2 prisma schema and idempotent seed data (#2)
+- **PR Link:** [#20](https://github.com/R1NNE0/toktickit/pull/20)
 
 **Reviewer comment I received:**
-> *(Paste reviewer feedback and checklist here)*
+> ### Peer Review Checklist & Verification
+> I have reviewed the database schema migrations and idempotent seed scripts for Lab 2 (Issue #2).
+> 
+> #### Verification Results
+> - [x] **Prisma Models & Enums:** `RequesterUser`, `Category`, `RelatedSystem`, `Ticket`, and `Attachment` strictly conform to `docs/lab-02/specification.md` Section 7. Enums `Priority` and `TicketStatus` are correctly declared.
+> - [x] **Performance Query Indexes:** Composite indexes `(requesterId, createdAt DESC)` and `(requesterId, currentStatus)` are defined on `Ticket` to ensure fast requester-scoped filtering.
+> - [x] **Soft Removal Support:** `Attachment` model contains `isRemoved`, `removedAt`, and `removalReason` fields with `onDelete: Cascade`.
+> - [x] **Migration SQL:** Migration script `20260830193542_init_lab2_schema` generates schema DDL cleanly.
+> - [x] **Idempotent Seed Script (`server/prisma/seed.ts`):**
+>   - Seeds 4 Categories and 7 Related Systems using `upsert`.
+>   - Seeds 4 Active Requesters + 1 Inactive Requester (`isActive: false`).
+>   - Seeds 5 realistic sample Tickets across various statuses and priorities.
+>   - Seeds 2 sample attachments (1 active PDF, 1 soft-removed PNG with removal reason).
+>   - Can be executed multiple consecutive times without duplicate key errors.
+> 
+> #### Verdict
+> **Approved!** The database schema and seed script meet all technical specifications and idempotency requirements. Ready to merge into `lab2-staging`.
 
 **How I responded:**
-> *(Paste response here)*
+> Thank you for the thorough review and verification!
+> 
+> I appreciate you checking the Prisma models, composite indexes, soft-removal fields, and verifying the seed script's idempotency.
+> 
+> Everything is in order and this PR is ready to be merged into `lab2-staging`.
 
 ---
 
@@ -141,14 +161,23 @@
 
 ---
 
-### Issue 2
-- **PR Link:** 
+### feat: add Lab 2 database schema and seed data- #20
+- **PR Link:** [#20](https://github.com/Kawi-HBLI/TokTickIT/pull/20)
 
 **My comment:**
+> ### Peer Review: APPROVED ✅
+> I have reviewed the database schema, migration strategy, idempotent seed data, and test suite for Issue #13. Everything meets the Lab 2 engineering specifications:
 > 
+> - **Schema & Relationships:** All 5 models (Category, RequesterUser, RelatedSystem, Ticket, Attachment) are properly defined with `onDelete: Restrict` foreign key policies and optimal filter/ownership indexes.
+> - **Ticket Numbering & Forward Migration:** PostgreSQL sequence generation is concurrency-safe. The forward migration correctly prevents digit truncation for numbers beyond 5 digits without modifying historical migrations.
+> - **Idempotent Seed:** Seeds 4 categories, 7 related systems, 4 active requesters, and 1 inactive requester safely via upserts with zero duplicate key errors on consecutive runs.
+> - **Automated Tests:** All 20 server integration tests passed cleanly (including temporary schema isolation, boundary values, and concurrent inserts).
+> - **Documentation:** `reviewer.md` and `ai-use.md` logs are up to date.
+> 
+> I am approving this PR so it can be merged into `lab2-staging`. Please update your review log and project board accordingly before moving on to Issue #14 (feature/3-requester-context).
 
 **Partner's response:**
-> 
+> Approval noted. The PR is ready for you to merge into `lab2-staging`.
 
 ---
 

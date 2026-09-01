@@ -26,7 +26,7 @@ The testing approach for TokTickIT Lab 2 follows a multi-tiered Test-Driven Deve
 | **API-11** | API | FR-09, AC-08 | Download active attachment on owned ticket | 200 OK; streams binary content with correct headers | `server/tests/lab-02/attachments.api.test.ts` | Planned |
 | **API-12** | API | FR-10, AC-08 | Soft-remove attachment with mandatory reason | 200 OK; `isRemoved = true`, `removedAt` set, `removalReason` saved | `server/tests/lab-02/attachments.api.test.ts` | Planned |
 | **API-13** | API | BR-08, AC-08 | Attempt to download soft-removed attachment | 403 Forbidden; download permanently blocked | `server/tests/lab-02/attachments.api.test.ts` | Planned |
-| **API-14** | API | FR-01, BR-04 | Get active development requesters | 200 OK; returns only active requesters (`isActive = true`) | `server/tests/lab-02/create-ticket.api.test.ts` | Planned |
+| **API-14** | API | FR-01, BR-04 | Get active development requesters | 200 OK; returns only active requesters (`isActive = true`) | `server/tests/lab-02/requesters.api.test.ts` | Pass |
 | **UI-01** | UI | FR-02, AC-02 | Form validation on empty submit | Displays inline red error messages below inputs without calling API | `client/src/tests/lab-02/CreateTicket.test.tsx` | Planned |
 | **UI-02** | UI | BR-10, AC-09 | Submit button busy state | Button disabled and displays loading spinner while submitting | `client/src/tests/lab-02/CreateTicket.test.tsx` | Planned |
 | **UI-03** | UI | FR-04, AC-04 | My Tickets table rendering | Renders rows matching current requester context | `client/src/tests/lab-02/MyTickets.test.tsx` | Planned |

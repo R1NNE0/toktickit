@@ -30,6 +30,49 @@ export interface HealthResponse {
   service: string;
 }
 
+export type Priority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type TicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+
+export interface Attachment {
+  id: number;
+  ticketId: number;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  isRemoved: boolean;
+  removedAt?: string | null;
+  removalReason?: string | null;
+  createdAt: string;
+}
+
+export interface Ticket {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  description: string;
+  requestedPriority: Priority;
+  itPriority: Priority;
+  currentStatus: TicketStatus;
+  requesterId: number;
+  categoryId: number;
+  relatedSystemId: number;
+  createdAt: string;
+  updatedAt: string;
+  category?: { id: number; name: string };
+  relatedSystem?: { id: number; name: string };
+  requester?: { id: number; name: string; email: string };
+  attachments?: Attachment[];
+}
+
+export interface CreateTicketPayload {
+  summary: string;
+  description: string;
+  categoryId: number;
+  relatedSystemId: number;
+  requestedPriority?: Priority;
+  idempotencyKey?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Storage Helpers
 // ---------------------------------------------------------------------------
@@ -102,6 +145,51 @@ export async function authFetch(
     ...options,
     headers,
   });
+}
+
+export async function createTicket(
+  payload: CreateTicketPayload
+): Promise<Ticket> {
+  const res = await authFetch("/api/tickets", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(
+      errorData.error ||
+        (errorData.details && errorData.details[0]?.message) ||
+        `Failed to create ticket with status ${res.status}`
+    );
+  }
+
+  return res.json();
+}
+
+export async function uploadAttachment(
+  ticketId: number,
+  file: File
+): Promise<Attachment> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await authFetch(`/api/tickets/${ticketId}/attachments`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(
+      errorData.error || `Failed to upload attachment with status ${res.status}`
+    );
+  }
+
+  return res.json();
 }
 
 // Legacy helper for Lab 1 tests & compatibility

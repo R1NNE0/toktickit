@@ -2,13 +2,26 @@ import { useState } from "react";
 import { RequesterProvider, useRequester } from "./context/RequesterContext.js";
 import { Header } from "./components/Header.js";
 import { RequesterSelector } from "./components/RequesterSelector.js";
+import { CreateTicket } from "./components/CreateTicket.js";
 import { checkSystem, Category } from "./api.js";
 
 type UiState = "idle" | "loading" | "success" | "error";
 
 function MainContent() {
-  const { currentRequester, isSwitching } = useRequester();
+  const { currentRequester, isSwitching, setIsSwitching } = useRequester();
   const [activeTab, setActiveTab] = useState<string>("my-tickets");
+  const [isFormDirty, setIsFormDirty] = useState<boolean>(false);
+
+  // Safe navigation with unsaved changes guard
+  const handleNavigate = (tab: string) => {
+    if (isFormDirty && activeTab === "create-ticket") {
+      const confirmLeave = window.confirm(
+        "You have unsaved changes in your ticket form. Are you sure you want to leave?"
+      );
+      if (!confirmLeave) return;
+    }
+    setActiveTab(tab);
+  };
 
   // Lab 1 System Check state for backward compatibility
   const [systemState, setSystemState] = useState<UiState>("idle");
@@ -34,7 +47,7 @@ function MainContent() {
 
   return (
     <div className="min-vh-100 d-flex flex-column" style={{ backgroundColor: "var(--page-bg)" }}>
-      <Header activeTab={activeTab} onNavigate={(tab) => setActiveTab(tab)} />
+      <Header activeTab={activeTab} onNavigate={handleNavigate} />
 
       <main className="container py-4 flex-grow-1" style={{ maxWidth: 1100 }}>
         {/* Main interactive area: Persona selector or active persona dashboard */}
@@ -58,6 +71,27 @@ function MainContent() {
                 </span>
               </div>
             </div>
+
+            {/* Tab Navigation Views */}
+            {activeTab === "create-ticket" ? (
+              <CreateTicket
+                onSuccessNavigate={() => setActiveTab("my-tickets")}
+                onDirtyChange={(dirty) => setIsFormDirty(dirty)}
+              />
+            ) : (
+              <div className="zen-card text-center py-4 mb-4">
+                <p className="text-muted mb-3">
+                  You are currently in the <strong>My Tickets</strong> overview.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-zen-primary"
+                  onClick={() => setActiveTab("create-ticket")}
+                >
+                  ➕ Create a New Support Ticket
+                </button>
+              </div>
+            )}
           </div>
         )}
 

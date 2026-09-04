@@ -78,11 +78,14 @@ model Ticket {
   relatedSystemId Int
   relatedSystem   RelatedSystem @relation(fields: [relatedSystemId], references: [id])
 
+  idempotencyKey String?
+
   attachments Attachment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([requesterId, idempotencyKey])
   @@index([requesterId, createdAt(sort: Desc)])
   @@index([requesterId, currentStatus])
 }

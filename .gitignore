@@ -12,3 +12,7 @@ server/prisma/*.db
 # logs & OS
 *.log
 .DS_Store
+# uploads
+uploads/
+server/uploads/
+

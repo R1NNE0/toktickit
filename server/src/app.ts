@@ -602,5 +602,223 @@ app.post(
   }
 );
 
+// ---------------------------------------------------------------------------
+// GET /api/tickets/:id (FR-07 / AC-04 / AC-06)
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/tickets/:id",
+  requireRequester,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const requesterId = req.requesterId!;
+      const ticketId = parseInt(req.params.id, 10);
+
+      if (isNaN(ticketId) || ticketId <= 0) {
+        res.status(400).json({ error: "Invalid ticket ID" });
+        return;
+      }
+
+      const prisma = getPrisma();
+      const ticket = await prisma.ticket.findUnique({
+        where: { id: ticketId },
+        include: {
+          category: {
+            select: { id: true, name: true },
+          },
+          relatedSystem: {
+            select: { id: true, name: true },
+          },
+          requester: {
+            select: { id: true, name: true, email: true },
+          },
+          attachments: {
+            select: {
+              id: true,
+              ticketId: true,
+              fileName: true,
+              fileSize: true,
+              mimeType: true,
+              isRemoved: true,
+              removedAt: true,
+              removalReason: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      });
+
+      if (!ticket) {
+        res.status(404).json({ error: "Ticket not found" });
+        return;
+      }
+
+      // Strict data isolation check: ticket must belong to active requester
+      if (ticket.requesterId !== requesterId) {
+        res.status(403).json({
+          error: "Forbidden: You do not have permission to view this ticket",
+        });
+        return;
+      }
+
+      res.json(ticket);
+    } catch (err) {
+      console.error("GET /api/tickets/:id error:", err);
+      res.status(500).json({ error: "Failed to retrieve ticket details" });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/attachments/:id/download (FR-09 / AC-08 / BR-08)
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/attachments/:id/download",
+  requireRequester,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const requesterId = req.requesterId!;
+      const attachmentId = parseInt(req.params.id, 10);
+
+      if (isNaN(attachmentId) || attachmentId <= 0) {
+        res.status(400).json({ error: "Invalid attachment ID" });
+        return;
+      }
+
+      const prisma = getPrisma();
+      const attachment = await prisma.attachment.findUnique({
+        where: { id: attachmentId },
+        include: {
+          ticket: {
+            select: {
+              id: true,
+              requesterId: true,
+            },
+          },
+        },
+      });
+
+      if (!attachment) {
+        res.status(404).json({ error: "Attachment not found" });
+        return;
+      }
+
+      // Check parent ticket ownership
+      if (attachment.ticket.requesterId !== requesterId) {
+        res.status(403).json({
+          error:
+            "Forbidden: You do not have permission to access this attachment",
+        });
+        return;
+      }
+
+      // Check if attachment has been soft-removed (BR-08 / AC-08)
+      if (attachment.isRemoved) {
+        res.status(403).json({
+          error:
+            "Attachment has been removed and is no longer available for download",
+        });
+        return;
+      }
+
+      // Resolve physical storedPath
+      const resolvedPath = path.isAbsolute(attachment.storedPath)
+        ? attachment.storedPath
+        : path.resolve(process.cwd(), attachment.storedPath);
+
+      if (!fs.existsSync(resolvedPath)) {
+        res.status(404).json({ error: "Attachment file not found on server" });
+        return;
+      }
+
+      res.setHeader("Content-Type", attachment.mimeType);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${encodeURIComponent(attachment.fileName)}"`
+      );
+      res.download(resolvedPath, attachment.fileName);
+    } catch (err) {
+      console.error("GET /api/attachments/:id/download error:", err);
+      res.status(500).json({ error: "Failed to download attachment" });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// DELETE /api/attachments/:id (FR-10 / AC-08 / BR-08)
+// ---------------------------------------------------------------------------
+app.delete(
+  "/api/attachments/:id",
+  requireRequester,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const requesterId = req.requesterId!;
+      const attachmentId = parseInt(req.params.id, 10);
+
+      if (isNaN(attachmentId) || attachmentId <= 0) {
+        res.status(400).json({ error: "Invalid attachment ID" });
+        return;
+      }
+
+      const { reason } = req.body || {};
+      if (!reason || typeof reason !== "string" || !reason.trim()) {
+        res.status(400).json({
+          error: "Removal reason is required and cannot be blank",
+        });
+        return;
+      }
+
+      const prisma = getPrisma();
+      const attachment = await prisma.attachment.findUnique({
+        where: { id: attachmentId },
+        include: {
+          ticket: {
+            select: {
+              id: true,
+              requesterId: true,
+            },
+          },
+        },
+      });
+
+      if (!attachment) {
+        res.status(404).json({ error: "Attachment not found" });
+        return;
+      }
+
+      // Check ownership
+      if (attachment.ticket.requesterId !== requesterId) {
+        res.status(403).json({
+          error:
+            "Forbidden: You do not have permission to remove this attachment",
+        });
+        return;
+      }
+
+      // Soft removal: do NOT delete from filesystem
+      const updated = await prisma.attachment.update({
+        where: { id: attachmentId },
+        data: {
+          isRemoved: true,
+          removedAt: new Date(),
+          removalReason: reason.trim(),
+        },
+        select: {
+          id: true,
+          fileName: true,
+          isRemoved: true,
+          removedAt: true,
+          removalReason: true,
+        },
+      });
+
+      res.status(200).json(updated);
+    } catch (err) {
+      console.error("DELETE /api/attachments/:id error:", err);
+      res.status(500).json({ error: "Failed to remove attachment" });
+    }
+  }
+);
+
 export default app;
 

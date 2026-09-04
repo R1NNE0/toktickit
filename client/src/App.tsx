@@ -3,6 +3,7 @@ import { RequesterProvider, useRequester } from "./context/RequesterContext.js";
 import { Header } from "./components/Header.js";
 import { RequesterSelector } from "./components/RequesterSelector.js";
 import { CreateTicket } from "./components/CreateTicket.js";
+import { MyTickets } from "./components/MyTickets.js";
 import { checkSystem, Category } from "./api.js";
 
 type UiState = "idle" | "loading" | "success" | "error";
@@ -79,18 +80,9 @@ function MainContent() {
                 onDirtyChange={(dirty) => setIsFormDirty(dirty)}
               />
             ) : (
-              <div className="zen-card text-center py-4 mb-4">
-                <p className="text-muted mb-3">
-                  You are currently in the <strong>My Tickets</strong> overview.
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-zen-primary"
-                  onClick={() => setActiveTab("create-ticket")}
-                >
-                  ➕ Create a New Support Ticket
-                </button>
-              </div>
+              <MyTickets
+                onNavigateCreate={() => setActiveTab("create-ticket")}
+              />
             )}
           </div>
         )}

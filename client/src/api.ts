@@ -73,6 +73,32 @@ export interface CreateTicketPayload {
   idempotencyKey?: string;
 }
 
+export interface GetTicketsParams {
+  search?: string;
+  status?: string;
+  categoryId?: number;
+  priority?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}
+
+export interface PaginationMeta {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  currentPage?: number;
+  limit?: number;
+  total?: number;
+}
+
+export interface PaginatedTicketsResponse {
+  data: Ticket[];
+  pagination: PaginationMeta;
+}
+
 // ---------------------------------------------------------------------------
 // Storage Helpers
 // ---------------------------------------------------------------------------
@@ -186,6 +212,49 @@ export async function uploadAttachment(
     const errorData = await res.json().catch(() => ({}));
     throw new Error(
       errorData.error || `Failed to upload attachment with status ${res.status}`
+    );
+  }
+
+  return res.json();
+}
+
+export async function getTickets(
+  params: GetTicketsParams = {}
+): Promise<PaginatedTicketsResponse> {
+  const query = new URLSearchParams();
+  if (params.search && params.search.trim()) {
+    query.set("search", params.search.trim());
+  }
+  if (params.status && params.status !== "ALL") {
+    query.set("status", params.status);
+  }
+  if (params.categoryId) {
+    query.set("categoryId", params.categoryId.toString());
+  }
+  if (params.priority && params.priority !== "ALL") {
+    query.set("priority", params.priority);
+  }
+  if (params.page !== undefined && params.page > 0) {
+    query.set("page", params.page.toString());
+  }
+  if (params.pageSize !== undefined && params.pageSize > 0) {
+    query.set("pageSize", params.pageSize.toString());
+  }
+  if (params.sortBy) {
+    query.set("sortBy", params.sortBy);
+  }
+  if (params.sortOrder) {
+    query.set("sortOrder", params.sortOrder);
+  }
+
+  const queryString = query.toString();
+  const endpoint = `/api/tickets${queryString ? `?${queryString}` : ""}`;
+  const res = await authFetch(endpoint);
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(
+      errorData.error || `Failed to fetch tickets with status ${res.status}`
     );
   }
 

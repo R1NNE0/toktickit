@@ -13,7 +13,7 @@
 | #19 | `feat/lab2-spec-and-test-plan` | Approved |
 | #20 | `feat/lab2-database-and-seed` | Approved |
 | #21 | `feat/lab2-requester-context` | Approved |
-| #4 | `feat/lab2-create-ticket` | Pending |
+| #22 | `feat/lab2-create-ticket` | Approved |
 | #5 | `feat/lab2-my-tickets` | Pending |
 | #6 | `feat/lab2-ticket-detail-and-attachment` | Pending |
 | #7 | `feat/lab2-e2e-and-release` | Pending |
@@ -104,14 +104,35 @@
 
 ---
 
-### feat: create ticket feature with attachment upload (Issue #4)
-- **PR Link:** 
+### feat(ticket): implement create ticket form with file upload and idempotency (#4)
+- **PR Link:** [#22](https://github.com/R1NNE0/toktickit/pull/22)
 
 **Reviewer comment I received:**
-> *(Paste reviewer feedback and checklist here)*
+> ### Peer Review Checklist & Verification — Issue #4
+> I have reviewed the ticket creation workflow, attachment handling, concurrency-safe ticket numbering, and idempotency protection for Lab 2 (Issue #4).
+> 
+> #### Verification Results
+> - [x] **Prisma Schema & Idempotency Key:** Added `idempotencyKey` field to Ticket model with `@@unique([requesterId, idempotencyKey])`. Re-submitting duplicate requests with identical key returns existing ticket without duplicating records.
+> - [x] **Ticket Numbering & Validation (POST /api/tickets):** Generates sequential `TKT-YYYY-XXXXXX` ticket numbers. Enforces `x-requester-id` context, input trimming, non-empty text validation, and valid Category/Related System relation checks.
+> - [x] **Attachment Upload Constraints (POST /api/tickets/:id/attachments):** Multer middleware restricts uploads to <= 5MB each, allowed formats (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`), and max 5 active files per ticket. Saved under `uploads/lab-02/`.
+> - [x] **Create Ticket UI Component (`CreateTicket.tsx`):**
+>   - Dropdown selectors with empty prompts and red asterisk indicators.
+>   - Attachment dropzone with file preview, size validation, and item remove CTA before submit.
+>   - Submit button busy state with animated spinner preventing duplicate submissions.
+>   - Preserves entered form values upon network/server failures (AC-10 / BR-11).
+>   - Dirty form confirmation prompt when attempting to leave with unsaved changes.
+>   - Confirmation card displaying generated `ticketNumber` upon creation.
+> - [x] **Automated Tests & Scenario Audit:** Verified locally — all 19 server integration tests and 21 client UI component tests pass cleanly. Audited all edge-case scenarios (input trimming, size limits, format restrictions, double submit, and server error preservation).
+> 
+> #### Verdict
+> **Approved!** Robust implementation of ticket creation, file uploads, idempotency protection, and Zen Green UX. Ready to merge into `lab2-staging`.
 
 **How I responded:**
-> *(Paste response here)*
+> Thanks for the thorough review and verification!
+> 
+> I appreciate you checking the entire ticket creation pipeline—from the database idempotency constraint (`@@unique([requesterId, idempotencyKey])`) and concurrency-safe numbering, to the Zen Green form safeguards and attachment restrictions.
+> 
+> The branch is clean, verified, and ready for you to merge into `lab2-staging`. Once merged, I will sync my local branch and update our project board before proceeding to Issue #5 (My Tickets)!
 
 ---
 
@@ -220,14 +241,24 @@
 
 ---
 
-### Issue 4
-- **PR Link:** 
+### feat: implement Create Ticket workflow and validation (#16)- #22
+- **PR Link:** [#22](https://github.com/Kawi-HBLI/TokTickIT/pull/22)
 
 **My comment:**
+> ### Peer Review: APPROVED ✅
+> I have reviewed the code, verified the automated test suites, and conducted live end-to-end testing for PR 4 (feature/4-create-ticket, Issue #16). The implementation is enterprise-ready and exceeds the Lab 2 requirements:
 > 
+> - **Server Validation & Constraints:** Enforces strict boundary checks for Summary (5–100 chars) and Description (10–2,000 chars) post-trim, rejecting extraneous fields and validating active foreign keys.
+> - **Attachment Handling:** Robust validation against allowed MIME types and extensions (JPG, PNG, WEBP, PDF up to 5 MiB, max 5 files). Filenames are sanitized and persisted via random UUIDs to avoid path traversal.
+> - **Idempotency & Concurrency:** Excellent implementation using PostgreSQL transaction advisory locks and SHA-256 fingerprints, safely differentiating between identical replay (HTTP 200) and payload conflicts (HTTP 409). Handled attachment savepoints gracefully.
+> - **Zen Green UI & Accessibility:** Implements reactive character counters, automatic focus movement to invalid fields, busy submission spinners, and a modal dirty-form guard with focus trapping.
+> - **Test Evidence & Builds:** All 79 server tests and 19 client tests pass cleanly. Production builds for both frontend and backend completed with zero errors.
+> - **Traceability:** Documentation in tests.md, reviewer.md, and ai-use.md is complete and accurate.
+> 
+> Approved and ready to merge into lab2-staging. Great job!
 
 **Partner's response:**
-> 
+> ขอบคุณที่ช่วยรีวิวและ approve ครับ ฝากกด merge เข้า lab2-staging ให้ด้วยนะครับขอบคุณค้าบบบบบบบ
 
 ---
 

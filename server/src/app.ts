@@ -137,6 +137,212 @@ app.get("/api/related-systems", async (_req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
+// Lab 2 (Issue #5) — List Owned Tickets (My Tickets)
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/tickets",
+  requireRequester,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const requesterId = req.requesterId!;
+      const {
+        search,
+        categoryId,
+        requestedPriority,
+        priority,
+        currentStatus,
+        status,
+        sortBy = "createdAt",
+        sortOrder = "desc",
+        page = "1",
+        pageSize,
+        limit,
+      } = req.query;
+
+      // 1. Pagination parameters validation
+      const parsedPage = parseInt(String(page), 10);
+      if (isNaN(parsedPage) || parsedPage < 1) {
+        res.status(400).json({ error: "Page must be a positive integer" });
+        return;
+      }
+
+      const rawLimit = pageSize || limit || "8";
+      const parsedLimit = parseInt(String(rawLimit), 10);
+      if (isNaN(parsedLimit) || parsedLimit < 1) {
+        res
+          .status(400)
+          .json({ error: "Page size/limit must be a positive integer" });
+        return;
+      }
+
+      // 2. Status filter validation
+      const validStatuses = [
+        "NEW",
+        "OPEN",
+        "IN_PROGRESS",
+        "RESOLVED",
+        "CLOSED",
+      ];
+      const rawStatus = currentStatus || status;
+      let filterStatus: any = undefined;
+      if (rawStatus && typeof rawStatus === "string" && rawStatus.trim()) {
+        const normalized = rawStatus.trim().toUpperCase();
+        if (!validStatuses.includes(normalized)) {
+          res.status(400).json({
+            error: `Invalid status parameter. Allowed values: ${validStatuses.join(
+              ", "
+            )}`,
+          });
+          return;
+        }
+        filterStatus = normalized;
+      }
+
+      // 3. Priority filter validation
+      const validPriorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+      const rawPriority = requestedPriority || priority;
+      let filterPriority: any = undefined;
+      if (rawPriority && typeof rawPriority === "string" && rawPriority.trim()) {
+        const normalized = rawPriority.trim().toUpperCase();
+        if (!validPriorities.includes(normalized)) {
+          res.status(400).json({
+            error: `Invalid priority parameter. Allowed values: ${validPriorities.join(
+              ", "
+            )}`,
+          });
+          return;
+        }
+        filterPriority = normalized;
+      }
+
+      // 4. Category filter validation
+      let filterCategoryId: number | undefined;
+      if (categoryId) {
+        const parsedCat = parseInt(String(categoryId), 10);
+        if (isNaN(parsedCat) || parsedCat <= 0) {
+          res.status(400).json({ error: "Invalid category ID" });
+          return;
+        }
+        filterCategoryId = parsedCat;
+      }
+
+      // 5. Sort parameters
+      const allowedSortFields = [
+        "createdAt",
+        "ticketNumber",
+        "requestedPriority",
+        "currentStatus",
+        "updatedAt",
+      ];
+      const sortField =
+        typeof sortBy === "string" && allowedSortFields.includes(sortBy)
+          ? sortBy
+          : "createdAt";
+
+      const sortDirection =
+        typeof sortOrder === "string" && sortOrder.toLowerCase() === "asc"
+          ? "asc"
+          : "desc";
+
+      // 6. Prisma Where condition (enforces requester isolation)
+      const where: any = {
+        requesterId,
+      };
+
+      if (filterCategoryId) {
+        where.categoryId = filterCategoryId;
+      }
+
+      if (filterStatus) {
+        where.currentStatus = filterStatus;
+      }
+
+      if (filterPriority) {
+        where.requestedPriority = filterPriority;
+      }
+
+      if (search && typeof search === "string" && search.trim()) {
+        const term = search.trim();
+        where.OR = [
+          { ticketNumber: { contains: term, mode: "insensitive" } },
+          { summary: { contains: term, mode: "insensitive" } },
+          { description: { contains: term, mode: "insensitive" } },
+        ];
+      }
+
+      const prisma = getPrisma();
+
+      // 7. Query count and records
+      const [totalCount, tickets] = await Promise.all([
+        prisma.ticket.count({ where }),
+        prisma.ticket.findMany({
+          where,
+          orderBy: [
+            { [sortField]: sortDirection },
+            { id: sortDirection },
+          ],
+          skip: (parsedPage - 1) * parsedLimit,
+          take: parsedLimit,
+          select: {
+            id: true,
+            ticketNumber: true,
+            summary: true,
+            description: true,
+            requestedPriority: true,
+            itPriority: true,
+            currentStatus: true,
+            createdAt: true,
+            updatedAt: true,
+            requesterId: true,
+            categoryId: true,
+            relatedSystemId: true,
+            category: {
+              select: { id: true, name: true },
+            },
+            relatedSystem: {
+              select: { id: true, name: true },
+            },
+            _count: {
+              select: {
+                attachments: {
+                  where: { isRemoved: false },
+                },
+              },
+            },
+          },
+        }),
+      ]);
+
+      const formattedData = tickets.map((t) => {
+        const { _count, ...rest } = t;
+        return {
+          ...rest,
+          attachmentCount: _count.attachments,
+        };
+      });
+
+      const totalPages = Math.ceil(totalCount / parsedLimit) || 1;
+
+      res.status(200).json({
+        data: formattedData,
+        pagination: {
+          total: totalCount,
+          totalItems: totalCount,
+          page: parsedPage,
+          currentPage: parsedPage,
+          pageSize: parsedLimit,
+          limit: parsedLimit,
+          totalPages,
+        },
+      });
+    } catch (err) {
+      console.error("GET /api/tickets error:", err);
+      res.status(500).json({ error: "Failed to retrieve tickets" });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Lab 2 (Issue #4) — Create Ticket
 // ---------------------------------------------------------------------------
 app.post(

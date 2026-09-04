@@ -15,9 +15,9 @@ The testing approach for TokTickIT Lab 2 follows a multi-tiered Test-Driven Deve
 | :--- | :---: | :---: | :--- | :--- | :--- | :---: |
 | **API-01** | API | FR-02, AC-01 | Create ticket with valid data & requester context | 201 Created; returns ticket with unique `TKT-YYYY-XXXXXX` and status `NEW` | `server/tests/lab-02/tickets.create.test.ts` | Pass |
 | **API-02** | API | BR-09, AC-02 | Create ticket with missing or whitespace Summary/Description | 400 Bad Request; field-level validation errors returned | `server/tests/lab-02/tickets.create.test.ts` | Pass |
-| **API-03** | API | FR-04, AC-04 | List tickets for active Requester A | 200 OK; returns only tickets where `requesterId == Requester A` | `server/tests/lab-02/my-tickets.api.test.ts` | Planned |
-| **API-04** | API | FR-05, AC-05 | Search by summary and filter by category/priority/status | 200 OK; filtered data matching query criteria | `server/tests/lab-02/my-tickets.api.test.ts` | Planned |
-| **API-05** | API | FR-06, AC-05 | Pagination on ticket list (page, pageSize) | 200 OK; paginated slice with total count and totalPages metadata | `server/tests/lab-02/my-tickets.api.test.ts` | Planned |
+| **API-03** | API | FR-04, AC-04 | List tickets for active Requester A | 200 OK; returns only tickets where `requesterId == Requester A` | `server/tests/lab-02/tickets.list.test.ts` | Pass |
+| **API-04** | API | FR-05, AC-05 | Search by summary and filter by category/priority/status | 200 OK; filtered data matching query criteria | `server/tests/lab-02/tickets.list.test.ts` | Pass |
+| **API-05** | API | FR-06, AC-05 | Pagination on ticket list (page, pageSize) | 200 OK; paginated slice with total count and totalPages metadata | `server/tests/lab-02/tickets.list.test.ts` | Pass |
 | **API-06** | API | FR-07, AC-04 | Get single owned ticket details | 200 OK; full ticket details with active & removed attachments | `server/tests/lab-02/ticket-detail.api.test.ts` | Planned |
 | **API-07** | API | FR-11, AC-06 | Requester B attempts to fetch Requester A's ticket | 403 Forbidden or 404 Not Found; access denied | `server/tests/lab-02/ticket-detail.api.test.ts` | Planned |
 | **API-08** | API | FR-08, AC-07 | Upload valid attachment (PDF/PNG <= 5MB) | 201 Created; attachment metadata saved with `isRemoved: false` | `server/tests/lab-02/tickets.create.test.ts` | Pass |
@@ -29,8 +29,8 @@ The testing approach for TokTickIT Lab 2 follows a multi-tiered Test-Driven Deve
 | **API-14** | API | FR-01, BR-04 | Get active development requesters | 200 OK; returns only active requesters (`isActive = true`) | `server/tests/lab-02/requesters.api.test.ts` | Pass |
 | **UI-01** | UI | FR-02, AC-02 | Form validation on empty submit | Displays inline red error messages below inputs without calling API | `client/src/tests/lab-02/CreateTicket.test.tsx` | Pass |
 | **UI-02** | UI | BR-10, AC-09 | Submit button busy state | Button disabled and displays loading spinner while submitting | `client/src/tests/lab-02/CreateTicket.test.tsx` | Pass |
-| **UI-03** | UI | FR-04, AC-04 | My Tickets table rendering | Renders rows matching current requester context | `client/src/tests/lab-02/MyTickets.test.tsx` | Planned |
-| **UI-04** | UI | FR-05, AC-05 | Search input and filter change interactions | Triggers data refresh with updated query parameters | `client/src/tests/lab-02/MyTickets.test.tsx` | Planned |
+| **UI-03** | UI | FR-04, AC-04 | My Tickets table rendering | Renders rows matching current requester context | `client/src/tests/lab-02/MyTickets.test.tsx` | Pass |
+| **UI-04** | UI | FR-05, AC-05 | Search input and filter change interactions | Triggers data refresh with updated query parameters | `client/src/tests/lab-02/MyTickets.test.tsx` | Pass |
 | **UI-05** | UI | FR-07, AC-06 | Read-only Ticket Detail view rendering | Displays read-only styled values and metadata correctly | `client/src/tests/lab-02/RequesterTicketDetail.test.tsx` | Planned |
 | **UI-06** | UI | FR-10, AC-08 | Attachment soft removal modal & reason validation | Opens modal on click, requires non-empty reason, updates UI state | `client/src/tests/lab-02/AttachmentSection.test.tsx` | Planned |
 | **E2E-01** | E2E | AC-01..08 | Complete Requester Flow: Select persona -> Create ticket with upload -> View in My Tickets -> Inspect detail -> Soft-remove file | 100% flow passes end-to-end; Ticket Number confirmed | `e2e/lab-02/requester-ticket-flow.spec.ts` | Planned |
@@ -90,10 +90,10 @@ npx playwright test e2e/lab-02/
 
 | Test Category | Total Planned | Passed | Failed | Skipped | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Server API Tests** | 14 | 0 | 0 | 0 | Pending Implementation |
-| **Client UI Tests** | 6 | 0 | 0 | 0 | Pending Implementation |
+| **Server API Tests** | 14 | 9 | 0 | 0 | In Progress (Issue #5 complete) |
+| **Client UI Tests** | 6 | 4 | 0 | 0 | In Progress (Issue #5 complete) |
 | **E2E Integration** | 1 | 0 | 0 | 0 | Pending Implementation |
-| **Total** | **21** | **0** | **0** | **0** | **Ready for Issue #2** |
+| **Total** | **21** | **13** | **0** | **0** | **Issue #5: 100% Passed** |
 
 ---
 

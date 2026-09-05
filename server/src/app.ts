@@ -15,6 +15,9 @@ export const app = express();
 app.use(cors()); // already wired: lets the Vite dev server call this API
 app.use(express.json());
 
+// Max 32-bit signed integer boundary (PostgreSQL serial/int)
+const MAX_INT = 2147483647;
+
 // Ensure upload directory exists
 const uploadDir = path.resolve(process.cwd(), "uploads/lab-02");
 if (!fs.existsSync(uploadDir)) {
@@ -527,7 +530,7 @@ app.post(
       const requesterId = req.requesterId!;
       const ticketId = parseInt(req.params.id, 10);
 
-      if (isNaN(ticketId) || ticketId <= 0) {
+      if (isNaN(ticketId) || ticketId <= 0 || ticketId > MAX_INT) {
         res.status(400).json({ error: "Invalid ticket ID" });
         return;
       }
@@ -613,7 +616,7 @@ app.get(
       const requesterId = req.requesterId!;
       const ticketId = parseInt(req.params.id, 10);
 
-      if (isNaN(ticketId) || ticketId <= 0) {
+      if (isNaN(ticketId) || ticketId <= 0 || ticketId > MAX_INT) {
         res.status(400).json({ error: "Invalid ticket ID" });
         return;
       }
@@ -680,7 +683,7 @@ app.get(
       const requesterId = req.requesterId!;
       const attachmentId = parseInt(req.params.id, 10);
 
-      if (isNaN(attachmentId) || attachmentId <= 0) {
+      if (isNaN(attachmentId) || attachmentId <= 0 || attachmentId > MAX_INT) {
         res.status(400).json({ error: "Invalid attachment ID" });
         return;
       }
@@ -732,9 +735,13 @@ app.get(
       }
 
       res.setHeader("Content-Type", attachment.mimeType);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      const asciiFallback =
+        attachment.fileName.replace(/[^\x20-\x7e]/g, "_") || "attachment";
+      const encodedName = encodeURIComponent(attachment.fileName);
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${encodeURIComponent(attachment.fileName)}"`
+        `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedName}`
       );
       res.download(resolvedPath, attachment.fileName);
     } catch (err) {
@@ -755,7 +762,7 @@ app.delete(
       const requesterId = req.requesterId!;
       const attachmentId = parseInt(req.params.id, 10);
 
-      if (isNaN(attachmentId) || attachmentId <= 0) {
+      if (isNaN(attachmentId) || attachmentId <= 0 || attachmentId > MAX_INT) {
         res.status(400).json({ error: "Invalid attachment ID" });
         return;
       }
@@ -791,6 +798,14 @@ app.delete(
         res.status(403).json({
           error:
             "Forbidden: You do not have permission to remove this attachment",
+        });
+        return;
+      }
+
+      // Concurrency & Audit Guard: Prevent double-removal from overwriting existing audit record
+      if (attachment.isRemoved) {
+        res.status(409).json({
+          error: "Conflict: This attachment has already been removed",
         });
         return;
       }

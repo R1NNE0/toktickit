@@ -15,7 +15,7 @@
 | #21 | `feat/lab2-requester-context` | Approved |
 | #22 | `feat/lab2-create-ticket` | Approved |
 | #23 | `feat/lab2-my-tickets` | Approved |
-| #6 | `feat/lab2-ticket-detail-and-attachment` | Pending |
+| #24 | `feat/lab2-ticket-detail-and-attachment` | Approved |
 | #7 | `feat/lab2-e2e-and-release` | Pending |
 
 ### docs: setup sprint 2 specifications, test plan, and review templates (Issue #1)
@@ -166,14 +166,33 @@
 
 ---
 
-### feat: requester ticket detail and attachment management (Issue #6)
-- **PR Link:** 
+### feat(ticket): implement ticket detail view, attachments download, and soft removal (#6)
+- **PR Link:** [#24](https://github.com/Kawi-HBLI/TokTickIT/pull/24)
 
 **Reviewer comment I received:**
-> *(Paste reviewer feedback and checklist here)*
+> ### Peer Review Checklist & Verification — Issue #6
+> I have reviewed the Ticket Detail inspection view, binary attachment streaming/download, and attachment soft-removal workflow for Lab 2 (Issue #6).
+> 
+> #### Verification Results
+> - [x] **Ticket Detail Inspection (GET /api/tickets/:id):** Returns full ticket attributes and relations with strict requester ownership enforcement. Attempts to access another requester's ticket return HTTP 403 Forbidden.
+> - [x] **Binary Attachment Streaming (GET /api/attachments/:id/download):** Streams active files with original filename disposition (Content-Disposition). Downloads of unowned or soft-removed attachments return HTTP 403 Forbidden.
+> - [x] **Soft-Removal Auditability (DELETE /api/attachments/:id):** Sets isRemoved = true, logs removedAt timestamp, and requires non-empty removalReason. Retains physical files on disk for compliance auditing.
+> - [x] **Ticket Detail & Removal Modal UI (TicketDetail.tsx):**
+>   - Read-only panels for metadata, summary, and description.
+>   - Active attachments list with Download and Remove actions.
+>   - Soft-removed attachments list displaying Removed badge, removal reason callout, and disabled download button.
+>   - Confirmation modal requiring non-empty removal reason before executing soft deletion.
+> - [x] **Automated Tests:** Verified locally — all 35 server integration tests and 32 client UI component tests pass with 100% green assertions.
+> 
+> #### Verdict
+> **Approved!** Excellent implementation of ticket detail inspection, binary attachment streaming, soft-removal auditing, and cross-requester protection. Ready to merge into lab2-staging.
 
 **How I responded:**
-> *(Paste response here)*
+> Thanks for the thorough review and verification!
+> 
+> I appreciate you validating the requester ownership boundaries, the binary download streaming headers, the physical retention of soft-deleted files, and the removal reason confirmation dialog.
+> 
+> The branch is clean, verified, and ready for you to merge into lab2-staging. Once merged, I will sync my local branch and update our project records before we proceed to Issue #7 (E2E and release integration)!
 
 ---
 
@@ -301,14 +320,24 @@
 
 ---
 
-### Issue 6
-- **PR Link:** 
+### feat: implement ticket detail and attachment lifecycle- #24
+- **PR Link:** [#24](https://github.com/Kawi-HBLI/TokTickIT/pull/24)
 
 **My comment:**
+> ### Peer Review: APPROVED
+> I have reviewed the implementation, executed all test suites, and audited the database boundary for PR 6 (feature/6-ticket-detail-attachments, Issue #18). The deliverable meets all Lab 2 requirements:
 > 
+> - **Attachment Security & Concurrency:** Excellent enforcement of PostgreSQL Transaction Advisory Locks to serialize attachment counts (<= 5 active files). The atomic soft-removal pattern correctly emits HTTP 409 on duplicate removals, blocks deleted assets with HTTP 410, and injects X-Content-Type-Options: nosniff.
+> - **Requester Boundary (UI-SCOPE-01):** Ticket details are strictly read-only for requesters without status mutation controls or IT-only internal notes. Safe 404 status codes prevent cross-requester resource leakage.
+> - **Accessible UX:** Removal confirmation modal implements full keyboard focus trapping and focus restoration upon dismissal.
+> - **Clarification on Prisma P2022:** Live smoke testing against an up-to-date database schema confirmed that GET /api/tickets/:id returns currentStatus correctly without P2022 errors. The issue was strictly local schema drift resolvable via npx prisma migrate deploy.
+> - **Test Evidence & Builds:** All 143 server tests and 45 client tests passed. Production builds for server and client compiled with zero errors.
+> - **Documentation:** Traceability matrix in tests.md, reviewer logs in reviewer.md, and reflection logs in ai-use.md are accurately updated.
+> 
+> Approved! As designated in the review agreement, I will proceed to merge this PR into lab2-staging.
 
 **Partner's response:**
-> 
+> The implementation and verification results are confirmed. Please proceed with the merge into lab2-staging. Thank you
 
 ---
 

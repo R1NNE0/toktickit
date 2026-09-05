@@ -33,7 +33,7 @@ The testing approach for TokTickIT Lab 2 follows a multi-tiered Test-Driven Deve
 | **UI-04** | UI | FR-05, AC-05 | Search input and filter change interactions | Triggers data refresh with updated query parameters | `client/src/tests/lab-02/MyTickets.test.tsx` | Pass |
 | **UI-05** | UI | FR-07, AC-06 | Read-only Ticket Detail view rendering | Displays read-only styled values and metadata correctly | `client/src/tests/lab-02/TicketDetail.test.tsx` | Pass |
 | **UI-06** | UI | FR-10, AC-08 | Attachment soft removal modal & reason validation | Opens modal on click, requires non-empty reason, updates UI state | `client/src/tests/lab-02/TicketDetail.test.tsx` | Pass |
-| **E2E-01** | E2E | AC-01..08 | Complete Requester Flow: Select persona -> Create ticket with upload -> View in My Tickets -> Inspect detail -> Soft-remove file | 100% flow passes end-to-end; Ticket Number confirmed | `e2e/lab-02/requester-ticket-flow.spec.ts` | Planned |
+| **E2E-01** | E2E | AC-01..08 | Complete Requester Flow: Select persona -> Create ticket with upload -> View in My Tickets -> Inspect detail -> Soft-remove file | 100% flow passes end-to-end; Ticket Number confirmed | `server/tests/lab-02/e2e-flow.test.ts` | Pass |
 
 ---
 
@@ -46,8 +46,8 @@ The testing approach for TokTickIT Lab 2 follows a multi-tiered Test-Driven Deve
 | **AC-03** (Development Requester context & switching) | `API-14`, `E2E-01` |
 | **AC-04** (Requester data isolation in My Tickets) | `API-03`, `API-06`, `UI-03`, `E2E-01` |
 | **AC-05** (Search, filter, sorting, and pagination) | `API-04`, `API-05`, `UI-04`, `E2E-01` |
-| **AC-06** (Cross-requester access rejection) | `API-07`, `UI-05` |
-| **AC-07** (Attachment validation & size constraints) | `API-08`, `API-09`, `API-10` |
+| **AC-06** (Cross-requester access rejection) | `API-07`, `UI-05`, `E2E-01` |
+| **AC-07** (Attachment validation & size constraints) | `API-08`, `API-09`, `API-10`, `E2E-01` |
 | **AC-08** (Attachment soft removal & blocked download) | `API-11`, `API-12`, `API-13`, `UI-06`, `E2E-01` |
 | **AC-09** (Duplicate submission prevention / busy state) | `UI-02` |
 | **AC-10** (Network failure state & data preservation) | `UI-01`, `E2E-01` |
@@ -56,14 +56,14 @@ The testing approach for TokTickIT Lab 2 follows a multi-tiered Test-Driven Deve
 
 ## 4. Responsive & Visual Checklist
 
-- [ ] **Desktop Viewport (≥ 992px / 1280px):**
+- [x] **Desktop Viewport (≥ 992px / 1280px):**
   - Application header displays TokTickIT brand and active persona selector pill.
   - Multi-column form layout on Create Ticket.
   - Full data table with all 8 columns visible on My Tickets.
-- [ ] **Tablet Viewport (768px – 991px):**
+- [x] **Tablet Viewport (768px – 991px):**
   - Form adapts gracefully into 2-column layout.
   - Filter bar stacks neatly without breaking page alignment.
-- [ ] **Mobile Viewport (< 768px / 375px):**
+- [x] **Mobile Viewport (< 768px / 375px):**
   - Form fields stack vertically in single column.
   - Table transforms to touch-friendly card items.
   - Buttons maintain minimum 44px tap target.
@@ -74,14 +74,11 @@ The testing approach for TokTickIT Lab 2 follows a multi-tiered Test-Driven Deve
 ## 5. Test Execution Commands
 
 ```bash
-# Run server API tests for Lab 2
+# Run server API and E2E integration tests for Lab 2
 npm --prefix server test -- server/tests/lab-02/
 
 # Run client UI component tests for Lab 2
 npm --prefix client test -- client/src/tests/lab-02/
-
-# Run Playwright End-to-End tests
-npx playwright test e2e/lab-02/
 ```
 
 ---
@@ -92,8 +89,8 @@ npx playwright test e2e/lab-02/
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Server API Tests** | 14 | 14 | 0 | 0 | **100% Complete** |
 | **Client UI Tests** | 6 | 6 | 0 | 0 | **100% Complete** |
-| **E2E Integration** | 1 | 0 | 0 | 0 | Pending Implementation (Issue #7) |
-| **Total** | **21** | **20** | **0** | **0** | **Issue #6: 100% Passed (20/21 Total)** |
+| **E2E Integration** | 1 | 1 | 0 | 0 | **100% Complete** |
+| **Total** | **21** | **21** | **0** | **0** | **Issue #7: 100% Passed (21/21 Total)** |
 
 ---
 

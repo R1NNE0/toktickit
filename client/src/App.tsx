@@ -4,6 +4,7 @@ import { Header } from "./components/Header.js";
 import { RequesterSelector } from "./components/RequesterSelector.js";
 import { CreateTicket } from "./components/CreateTicket.js";
 import { MyTickets } from "./components/MyTickets.js";
+import { TicketDetail } from "./components/TicketDetail.js";
 import { checkSystem, Category } from "./api.js";
 
 type UiState = "idle" | "loading" | "success" | "error";
@@ -11,6 +12,7 @@ type UiState = "idle" | "loading" | "success" | "error";
 function MainContent() {
   const { currentRequester, isSwitching, setIsSwitching } = useRequester();
   const [activeTab, setActiveTab] = useState<string>("my-tickets");
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [isFormDirty, setIsFormDirty] = useState<boolean>(false);
 
   // Safe navigation with unsaved changes guard
@@ -21,6 +23,7 @@ function MainContent() {
       );
       if (!confirmLeave) return;
     }
+    setSelectedTicketId(null);
     setActiveTab(tab);
   };
 
@@ -76,12 +79,29 @@ function MainContent() {
             {/* Tab Navigation Views */}
             {activeTab === "create-ticket" ? (
               <CreateTicket
-                onSuccessNavigate={() => setActiveTab("my-tickets")}
+                onSuccessNavigate={() => {
+                  setSelectedTicketId(null);
+                  setActiveTab("my-tickets");
+                }}
                 onDirtyChange={(dirty) => setIsFormDirty(dirty)}
+              />
+            ) : selectedTicketId ? (
+              <TicketDetail
+                ticketId={selectedTicketId}
+                onBack={() => {
+                  setSelectedTicketId(null);
+                  setActiveTab("my-tickets");
+                }}
               />
             ) : (
               <MyTickets
-                onNavigateCreate={() => setActiveTab("create-ticket")}
+                onNavigateCreate={() => {
+                  setSelectedTicketId(null);
+                  setActiveTab("create-ticket");
+                }}
+                onSelectTicket={(ticketId) => {
+                  setSelectedTicketId(ticketId);
+                }}
               />
             )}
           </div>

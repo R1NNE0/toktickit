@@ -261,6 +261,63 @@ export async function getTickets(
   return res.json();
 }
 
+export async function getTicketDetail(id: number): Promise<Ticket> {
+  const res = await authFetch(`/api/tickets/${id}`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(
+      errorData.error || `Failed to fetch ticket details with status ${res.status}`
+    );
+  }
+  return res.json();
+}
+
+export async function downloadAttachment(
+  attachmentId: number,
+  fileName: string
+): Promise<void> {
+  const res = await authFetch(`/api/attachments/${attachmentId}/download`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(
+      errorData.error || `Failed to download attachment with status ${res.status}`
+    );
+  }
+
+  const blob = await res.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(downloadUrl);
+}
+
+export async function softRemoveAttachment(
+  attachmentId: number,
+  reason: string
+): Promise<Attachment> {
+  const res = await authFetch(`/api/attachments/${attachmentId}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ reason }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(
+      errorData.error ||
+        `Failed to remove attachment with status ${res.status}`
+    );
+  }
+
+  return res.json();
+}
+
 // Legacy helper for Lab 1 tests & compatibility
 export async function checkSystem(): Promise<SystemStatus> {
   await getHealthStatus();

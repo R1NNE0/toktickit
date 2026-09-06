@@ -15,4 +15,6 @@ server/prisma/*.db
 # uploads
 uploads/
 server/uploads/
+# vite temporary files
+*.timestamp-*.mjs
 

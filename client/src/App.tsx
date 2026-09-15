@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { RequesterProvider, useRequester } from "./context/RequesterContext.js";
+import { SessionRequesterProvider, useRequester } from "./context/RequesterContext.js";
 import { Header } from "./components/Header.js";
-import { RequesterSelector } from "./components/RequesterSelector.js";
+import { AuthProvider, useAuth } from "./context/AuthContext.js";
+import { Login } from "./components/Login.js";
+import { ChangePassword } from "./components/ChangePassword.js";
 import { CreateTicket } from "./components/CreateTicket.js";
 import { MyTickets } from "./components/MyTickets.js";
 import { TicketDetail } from "./components/TicketDetail.js";
@@ -9,8 +11,22 @@ import { checkSystem, Category } from "./api.js";
 
 type UiState = "idle" | "loading" | "success" | "error";
 
+function LogoutRetry() {
+  const { logout } = useAuth();
+  const [busy, setBusy] = useState(false);
+  return <div className="alert alert-warning" role="alert">Logout could not be confirmed. Retry.
+    <button className="btn btn-outline-secondary ms-2" disabled={busy} onClick={async () => {
+      setBusy(true);
+      try { await logout(); } catch { /* Keep private content hidden while retry remains available. */ }
+      finally { setBusy(false); }
+    }}>{busy ? "Signing out..." : "Retry sign out"}</button>
+  </div>;
+}
+
 function MainContent() {
-  const { currentRequester, isSwitching, setIsSwitching } = useRequester();
+  const { currentRequester } = useRequester();
+  const auth = useAuth();
+  const [changingPassword, setChangingPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("my-tickets");
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [isFormDirty, setIsFormDirty] = useState<boolean>(false);
@@ -51,13 +67,20 @@ function MainContent() {
 
   return (
     <div className="min-vh-100 d-flex flex-column" style={{ backgroundColor: "var(--page-bg)" }}>
-      <Header activeTab={activeTab} onNavigate={handleNavigate} />
+      <Header activeTab={activeTab} onNavigate={handleNavigate} onChangePassword={() => setChangingPassword(true)} />
 
       <main className="container py-4 flex-grow-1" style={{ maxWidth: 1100 }}>
-        {/* Main interactive area: Persona selector or active persona dashboard */}
-        {!currentRequester || isSwitching ? (
-          <RequesterSelector />
-        ) : (
+        {/* Session gate and existing Requester screens */}
+        {auth.loading ? <p role="status">Checking your session...</p>
+          : auth.logoutPending ? <LogoutRetry />
+          : auth.error ? <div className="alert alert-danger" role="alert">{auth.error} <button onClick={() => void auth.reload()}>Retry</button></div>
+          : !auth.user ? <Login onSubmit={auth.login} />
+          : auth.user.mustChangePassword || changingPassword ? <ChangePassword mandatory={auth.user.mustChangePassword}
+              onSubmit={async body => { await auth.changePassword(body); setChangingPassword(false); }}
+              onCancel={() => setChangingPassword(false)} />
+          : auth.user.role !== "REQUESTER" ? <div className="zen-card"><h1 className="h4">Welcome, {auth.user.name}</h1>
+              <p>Signed in as {auth.user.role === "IT_STAFF" ? "IT Staff" : "Administrator"}.</p></div>
+          : currentRequester && (
           <div>
             {/* Active Requester Welcome Card */}
             <div className="zen-card mb-4">
@@ -67,11 +90,11 @@ function MainContent() {
                     Welcome, {currentRequester.name}
                   </h1>
                   <p className="text-muted small mb-0">
-                    Active Development Persona: <strong>{currentRequester.email}</strong>
+                    Signed in: <strong>{currentRequester.email}</strong>
                   </p>
                 </div>
                 <span className="badge" style={{ backgroundColor: "var(--pale-green)", color: "var(--primary-green)", padding: "8px 12px", fontSize: "0.85rem" }}>
-                  Active Persona
+                  Requester
                 </span>
               </div>
             </div>
@@ -155,10 +178,13 @@ function MainContent() {
   );
 }
 
+function SessionApp() {
+  const { user } = useAuth();
+  return <SessionRequesterProvider user={user}><MainContent key={user ? user.id + ":" + user.mustChangePassword : "signed-out"} /></SessionRequesterProvider>;
+}
+
 export default function App() {
   return (
-    <RequesterProvider>
-      <MainContent />
-    </RequesterProvider>
+    <AuthProvider><SessionApp /></AuthProvider>
   );
 }

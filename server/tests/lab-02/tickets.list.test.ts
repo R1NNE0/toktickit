@@ -1,3 +1,4 @@
+import { requesterHeaders } from "../lab-03/legacy-session.js";
 import { describe, it, expect, beforeAll } from "vitest";
 import request from "supertest";
 import { app } from "../../src/app.js";
@@ -12,10 +13,10 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
 
   beforeAll(async () => {
     // 1. Get seeded requesters
-    const jennifer = await prisma.requesterUser.findUnique({
+    const jennifer = await prisma.user.findUnique({
       where: { email: "jennifer.anderson@example.com" },
     });
-    const michael = await prisma.requesterUser.findUnique({
+    const michael = await prisma.user.findUnique({
       where: { email: "michael.brown@example.com" },
     });
 
@@ -42,7 +43,7 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
     // Jennifer requests her tickets
     const resJennifer = await request(app)
       .get("/api/tickets")
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(resJennifer.status).toBe(200);
     expect(resJennifer.body).toHaveProperty("data");
@@ -58,7 +59,7 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
     // Michael requests his tickets
     const resMichael = await request(app)
       .get("/api/tickets")
-      .set("x-requester-id", michaelId.toString());
+      .set(await requesterHeaders(michaelId));
 
     expect(resMichael.status).toBe(200);
     expect(resMichael.body.data.length).toBeGreaterThanOrEqual(2);
@@ -73,7 +74,7 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
     // Search Jennifer's tickets for "battery"
     const resSearch = await request(app)
       .get("/api/tickets?search=battery")
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(resSearch.status).toBe(200);
     expect(resSearch.body.data.length).toBeGreaterThanOrEqual(1);
@@ -82,7 +83,7 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
     // Search by exact ticket number
     const resNumber = await request(app)
       .get("/api/tickets?search=TKT-2026-000102")
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(resNumber.status).toBe(200);
     expect(resNumber.body.data.length).toBe(1);
@@ -93,7 +94,7 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
     // Filter Jennifer's tickets by status = RESOLVED
     const resStatus = await request(app)
       .get("/api/tickets?currentStatus=RESOLVED")
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(resStatus.status).toBe(200);
     expect(resStatus.body.data.length).toBeGreaterThanOrEqual(1);
@@ -104,7 +105,7 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
     // Filter Jennifer's tickets by category = Network
     const resCategory = await request(app)
       .get(`/api/tickets?categoryId=${networkCategoryId}`)
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(resCategory.status).toBe(200);
     expect(resCategory.body.data.length).toBeGreaterThanOrEqual(1);
@@ -118,7 +119,7 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
     // Page 1
     const resPage1 = await request(app)
       .get(`/api/tickets?page=1&pageSize=${pageSize}`)
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(resPage1.status).toBe(200);
     expect(resPage1.body.data.length).toBe(pageSize);
@@ -133,7 +134,7 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
     // Page 2
     const resPage2 = await request(app)
       .get(`/api/tickets?page=2&pageSize=${pageSize}`)
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(resPage2.status).toBe(200);
     expect(resPage2.body.data.length).toBeGreaterThanOrEqual(1);
@@ -149,7 +150,7 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
   it("defaults sorting to createdAt DESC (BR-13)", async () => {
     const res = await request(app)
       .get("/api/tickets")
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(res.status).toBe(200);
     const tickets = res.body.data;
@@ -162,21 +163,21 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
     }
   });
 
-  it("rejects invalid query parameters and missing requester header with 400", async () => {
-    // Missing header
+  it("rejects invalid query parameters with 400 and missing session with 401", async () => {
+    // Missing session
     const resNoHeader = await request(app).get("/api/tickets");
-    expect(resNoHeader.status).toBe(400);
+    expect(resNoHeader.status).toBe(401);
 
     // Negative page
     const resNegPage = await request(app)
       .get("/api/tickets?page=-1")
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
     expect(resNegPage.status).toBe(400);
 
     // Invalid status enum
     const resBadStatus = await request(app)
       .get("/api/tickets?status=INVALID_STATUS")
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
     expect(resBadStatus.status).toBe(400);
   });
 });

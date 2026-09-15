@@ -109,3 +109,11 @@ export function useRequester(): RequesterContextType {
   }
   return ctx;
 }
+// Issue 2 adapter for existing Requester screens. The legacy selector provider is
+// retained only for its historical tests until the Issue 3 cleanup.
+export function SessionRequesterProvider({ user, children }: { user: RequesterUser | null; children: ReactNode }) {
+  return <RequesterContext.Provider value={{
+    currentRequester: user, requesters: user ? [user] : [], loading: false, error: null, isSwitching: false,
+    setIsSwitching: () => {}, selectRequester: () => {}, clearRequester: () => {}, refreshRequesters: async () => {}
+  }}>{children}</RequesterContext.Provider>;
+}

@@ -1,3 +1,4 @@
+import { requesterHeaders } from "../lab-03/legacy-session.js";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import path from "path";
@@ -22,10 +23,10 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
 
   beforeAll(async () => {
     // 1. Discover seeded requesters
-    const jennifer = await prisma.requesterUser.findUnique({
+    const jennifer = await prisma.user.findUnique({
       where: { email: "jennifer.anderson@example.com" },
     });
-    const michael = await prisma.requesterUser.findUnique({
+    const michael = await prisma.user.findUnique({
       where: { email: "michael.brown@example.com" },
     });
 
@@ -48,7 +49,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
     emailSystemId = system!.id;
 
     // 3. Prepare temporary attachment file
-    const uploadDir = path.resolve(process.cwd(), "uploads/lab-02");
+    const uploadDir = path.resolve(process.cwd(), process.env.TEST_UPLOAD_ROOT!);
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -73,19 +74,15 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
   });
 
   // -------------------------------------------------------------------------
-  // Step 1: Requester Persona Discovery (API-14 / AC-03)
+  // Step 1: Current authenticated identity (Lab 3 session bridge)
   // -------------------------------------------------------------------------
-  it("Step 1: discovers active development requesters for persona selection (API-14 / AC-03)", async () => {
-    const res = await request(app).get("/api/requesters/active");
-
+  it("Step 1: retrieves the current session identity without persona discovery", async () => {
+    const res = await request(app).get("/api/auth/me").set(await requesterHeaders(jenniferId));
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThanOrEqual(4);
-
-    const jennifer = res.body.find((r: { id: number }) => r.id === jenniferId);
-    expect(jennifer).toBeDefined();
-    expect(jennifer.name).toBe("Jennifer Anderson");
-    expect(jennifer.isActive).toBe(true);
+    expect(res.body.user.id).toBe(jenniferId);
+    expect(res.body.user.name).toBe("Jennifer Anderson");
+    expect(res.body.user.isActive).toBe(true);
+    expect(res.body.user).not.toHaveProperty("passwordHash");
   });
 
   // -------------------------------------------------------------------------
@@ -104,7 +101,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
 
     const res = await request(app)
       .post("/api/tickets")
-      .set("x-requester-id", jenniferId.toString())
+      .set(await requesterHeaders(jenniferId))
       .send(payload);
 
     expect(res.status).toBe(201);
@@ -132,7 +129,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
 
     const res = await request(app)
       .post("/api/tickets")
-      .set("x-requester-id", jenniferId.toString())
+      .set(await requesterHeaders(jenniferId))
       .send(payload);
 
     // Should return 200 OK with existing ticket without creating a new duplicate
@@ -147,7 +144,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
   it("Step 3: uploads a diagnostics attachment to the newly created ticket (API-08 / AC-07)", async () => {
     const res = await request(app)
       .post(`/api/tickets/${createdTicketId}/attachments`)
-      .set("x-requester-id", jenniferId.toString())
+      .set(await requesterHeaders(jenniferId))
       .attach("file", tempUploadPath, "e2e-diagnostics.pdf");
 
     expect(res.status).toBe(201);
@@ -167,7 +164,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
     // 4.1 Search by specific summary keyword
     const searchRes = await request(app)
       .get("/api/tickets?search=VPN+Gateway&status=NEW&priority=HIGH")
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(searchRes.status).toBe(200);
     expect(searchRes.body).toHaveProperty("data");
@@ -192,7 +189,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
   it("Step 5: inspects full ticket details and relational metadata (API-06 / AC-04)", async () => {
     const res = await request(app)
       .get(`/api/tickets/${createdTicketId}`)
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(createdTicketId);
@@ -224,7 +221,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
   it("Step 6a: streams binary download of active attachment with nosniff and RFC 6266 header (API-11 / AC-08)", async () => {
     const res = await request(app)
       .get(`/api/attachments/${attachmentId}/download`)
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/application\/pdf/i);
@@ -240,7 +237,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
     const reasonText = "E2E verification completed; soft-removing diagnostics file";
     const res = await request(app)
       .delete(`/api/attachments/${attachmentId}`)
-      .set("x-requester-id", jenniferId.toString())
+      .set(await requesterHeaders(jenniferId))
       .send({ reason: reasonText });
 
     expect(res.status).toBe(200);
@@ -261,7 +258,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
   it("Step 6c: rejects repeat delete with 409 Conflict to protect audit history (Audit Guard)", async () => {
     const res = await request(app)
       .delete(`/api/attachments/${attachmentId}`)
-      .set("x-requester-id", jenniferId.toString())
+      .set(await requesterHeaders(jenniferId))
       .send({ reason: "Attempting to overwrite previous audit record" });
 
     expect(res.status).toBe(409);
@@ -271,7 +268,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
   it("Step 6d: permanently blocks subsequent download of soft-removed attachment (API-13 / AC-08)", async () => {
     const res = await request(app)
       .get(`/api/attachments/${attachmentId}/download`)
-      .set("x-requester-id", jenniferId.toString());
+      .set(await requesterHeaders(jenniferId));
 
     expect(res.status).toBe(403);
     expect(res.body.error).toMatch(/Attachment has been removed/i);
@@ -283,7 +280,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
   it("Step 7a: rejects cross-requester access when Requester B attempts to inspect ticket (API-07 / AC-06)", async () => {
     const res = await request(app)
       .get(`/api/tickets/${createdTicketId}`)
-      .set("x-requester-id", michaelId.toString());
+      .set(await requesterHeaders(michaelId));
 
     expect(res.status).toBe(403);
     expect(res.body.error).toMatch(/Forbidden|permission/i);
@@ -292,7 +289,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
   it("Step 7b: rejects cross-requester download when Requester B attempts to download attachment", async () => {
     const res = await request(app)
       .get(`/api/attachments/${attachmentId}/download`)
-      .set("x-requester-id", michaelId.toString());
+      .set(await requesterHeaders(michaelId));
 
     expect(res.status).toBe(403);
     expect(res.body.error).toMatch(/Forbidden|permission/i);
@@ -301,7 +298,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
   it("Step 7c: rejects cross-requester removal when Requester B attempts to delete attachment", async () => {
     const res = await request(app)
       .delete(`/api/attachments/${attachmentId}`)
-      .set("x-requester-id", michaelId.toString())
+      .set(await requesterHeaders(michaelId))
       .send({ reason: "Malicious deletion attempt from another requester" });
 
     expect(res.status).toBe(403);
@@ -311,7 +308,7 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
   it("Step 7d: ensures Requester B's My Tickets list excludes Requester A's tickets (Data Isolation)", async () => {
     const res = await request(app)
       .get("/api/tickets")
-      .set("x-requester-id", michaelId.toString());
+      .set(await requesterHeaders(michaelId));
 
     expect(res.status).toBe(200);
     const leakedTicket = res.body.data.find(

@@ -1,3 +1,4 @@
+import { sessionFetch } from "./auth-client.js";
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 const REQUESTER_STORAGE_KEY = "toktickit_selected_requester_id";
 
@@ -159,18 +160,7 @@ export async function authFetch(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const requesterId = getStoredRequesterId();
-  const headers = new Headers(options.headers || {});
-
-  if (requesterId) {
-    headers.set("x-requester-id", requesterId.toString());
-  }
-
-  const url = endpoint.startsWith("http") ? endpoint : `${API_URL}${endpoint}`;
-  return fetch(url, {
-    ...options,
-    headers,
-  });
+  return sessionFetch(endpoint, options);
 }
 
 export async function createTicket(

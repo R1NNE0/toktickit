@@ -67,14 +67,14 @@ Existing code has five ticket statuses, `RequesterUser`, requester-header owners
 | FR-17 | Migration preserves existing requester IDs, ticket submitter relations, tickets, attachments, and reference data. |
 | FR-18 | Repeated seeds supply required role fixtures without resetting changed credentials or operational data. |
 | FR-19 | All required screens use consistent Zen Green states, responsive layouts, labels, and keyboard access. |
-| FR-20 | Approved requirements map to planned tests and actual review, migration, responsive, and final-main evidence. |
+| FR-20 | **Course/release delivery requirement:** approved requirements map to planned tests and actual review, migration, responsive, and final-main evidence. |
 
 ## 5. Business Rules
 
 | ID | Rule and source |
 |---|---|
 | BR-01 | **Required:** only active users with valid credentials authenticate. Missing/disabled credentials never establish a normal session. |
-| BR-02 | **Required:** `mustChangePassword` blocks all normal APIs/screens. **ED-02:** allow only CSRF bootstrap, current user, password change, and logout during this restriction. |
+| BR-02 | **Required:** initial-password login creates a restricted authenticated session with `mustChangePassword=true`, blocking all normal APIs/screens. **ED-02:** its allowlist is current-user retrieval, CSRF bootstrap, password change, and logout only. POST `/auth/login` through that same restricted session returns 403 PASSWORD_CHANGE_REQUIRED, even with valid credentials; it cannot replace the session or switch accounts. A successful password change rotates into a normal session; logout revokes the restricted session. |
 | BR-03 | **Required:** server-authenticated identity determines Requester ownership. **ED-04:** reject body/query ownership overrides with 400; ignore `x-requester-id` entirely, so it can never authenticate. |
 | BR-04 | **Required:** Public Comments are visible to the submitting Requester, IT Staff, and Administrator; Internal Notes only to IT Staff/Administrator. **ED-05:** Administrators read but do not append these entries; this communication-specific choice does not restrict their explicit IT Priority permission. |
 | BR-05 | **Required:** Requester resolution indication cannot formally set Resolved or Closed. **ED-06:** Requesters perform no formal status transitions. |
@@ -222,8 +222,8 @@ Exact methods, paths, DTOs, validation, cookies/CSRF, query behavior and safe st
 
 | ID | Given / When / Then |
 |---|---|
-| AC-01 | Given an active provisioned user, when correct email/password is submitted, then a new session and safe identity are returned; invalid, unknown and inactive credentials share a safe failure. |
-| AC-02 | Given an initial-password session, when normal APIs or screens are opened, then access is blocked until a valid changed password is saved and the session rotated. |
+| AC-01 | Given an active provisioned user and an anonymous/bootstrap or unrestricted session, when correct email/password is submitted, then a new session and safe identity are returned; an initial password produces the restricted session in AC-02, and invalid, unknown and inactive credentials share a safe failure. |
+| AC-02 | Given an initial-password login, then a restricted authenticated session permits only current-user retrieval, CSRF bootstrap, password change, and logout. Normal APIs and re-login through that session return 403 PASSWORD_CHANGE_REQUIRED; valid re-login credentials do not replace it. Normal screens remain blocked until a valid changed password is saved and the session rotated; logout revokes it. |
 | AC-03 | Given a valid session, when current user is requested, then current safe identity is returned; after logout, idle/absolute expiry or account revocation, protected access fails. |
 | AC-04 | Given absent or forged credentials/identity inputs, when protected APIs are called, then neither another identity nor unauthorized access is obtained. |
 | AC-05 | Given each role, when destinations or direct APIs are accessed, then §6.1 is enforced, including required Administrator comment/note reads and IT Priority editing, separately chosen denials of other operations, and no Requester note data. |
@@ -247,7 +247,7 @@ Exact methods, paths, DTOs, validation, cookies/CSRF, query behavior and safe st
 | AC-23 | Given desktop/tablet/mobile and keyboard use, when major screens are exercised, then Zen Green tokens, readable labels/badges, focus, navigation and no clipping/overlap/page overflow are verified. |
 | AC-24 | Given the release candidate, when actual browser authentication/staff/admin/requester journeys run, then behavior works across UI/API/DB and evidence maps to ACs. |
 | AC-25 | Given a state-changing request, when CSRF/origin validation fails or login is throttled, then the request is rejected safely without unintended mutation. |
-| AC-26 | Given the completed increment, when the contract is audited, then required tests, migration/visual evidence, bilateral peer approvals, staged history and final-main evidence exist with no fabricated completion claims. |
+| AC-26 | **Course/release delivery criterion:** given the completed increment, when delivery is audited, then required test outputs, migration evidence, screenshots/visual review, bilateral peer approvals, staged history, final-main and submission evidence exist with no fabricated completion claims. This criterion does not gate product completion. |
 
 Every AC maps to planned tests/evidence in [tests.md](tests.md). All remain unverified.
 
@@ -255,17 +255,21 @@ Every AC maps to planned tests/evidence in [tests.md](tests.md). All remain unve
 
 ### Product completion — all unchecked
 
-Engineering-decision approval is recorded in §11 (Phases 2.1/2.2). The product and release checks below remain unverified; approval is not evidence of implementation or passing tests.
-- [ ] All FR/BR/AC entries implemented and traceable; planned tests pass with no required skip or fabricated result.
+Engineering-decision approval is recorded in §11 (Phases 2.1/2.2). The product and release checks below remain unverified; approval is not evidence of implementation or passing tests. Product completion covers FR-01–19, BR-01–30 and AC-01–25 only. FR-20 and AC-26 belong to course/release delivery. Product behavior and its test results can be verified before final-main or submission evidence is assembled.
+
+- [ ] Product requirements FR-01–19, BR-01–30 and criteria AC-01–25 are satisfied and traceable; their planned behavioral tests/checks pass with no required skip or fabricated result.
 - [ ] Migration/provisioning preserves seeded and non-seeded Lab 2 records, ownership and attachment bytes/metadata.
 - [ ] Auth/session/password-change/logout/CSRF/activation/security behavior proven through direct APIs and browser flows.
 - [ ] Requester regression, IT Staff Queue/Detail, communication/workflow and minimal Administrator UI complete.
 - [ ] Role/resource restrictions, concurrent updates and Administrator safeguards verified.
-- [ ] Desktop/tablet/mobile and keyboard evidence meets ui-spec.md; actual screenshots reviewed.
+- [ ] Desktop/tablet/mobile behavior, Zen Green presentation and keyboard accessibility conform to ui-spec.md and pass the relevant product checks. Screenshot capture and submitted visual-review evidence belong to the delivery gates below.
 - [ ] Setup, credential provisioning, test commands, failure behavior and limitations documented accurately.
 
 ### Course/process and release gates — also required, all unchecked
 
+These gates satisfy FR-20 and AC-26 separately from product completion; they must be completed for course delivery and release, not used to block the product-completion verdict.
+
+- [ ] Required screenshots and visual-review evidence are captured, reviewed and linked as specified in ui-spec.md/tests.md.
 - [ ] Required GitHub Issues specified before implementation with dependencies, ACs and tests.
 - [ ] Feature branches target lab3-staging; no development directly on main/staging.
 - [ ] Peer-reviewed PRs with actual approval, responses and re-review after fixes; student's reviews/approvals of assigned peer also recorded.

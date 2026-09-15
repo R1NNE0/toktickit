@@ -1,94 +1,28 @@
-import React from "react";
-import { useRequester } from "../context/RequesterContext.js";
-
-interface HeaderProps {
-  activeTab?: string;
-  onNavigate?: (tab: string) => void;
+import { useState } from "react";
+import { useAuth } from "../context/AuthContext.js";
+export function Header({ activeTab = "my-tickets", onNavigate, onChangePassword }: {
+  activeTab?: string; onNavigate?: (tab: string) => void; onChangePassword?: () => void;
+}) {
+  const { user, logout } = useAuth();
+  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  async function signOut() {
+    if (busy) return;
+    setBusy(true); setError("");
+    try { await logout(); } catch { setError("Sign out failed. Please retry."); }
+    finally { setBusy(false); }
+  }
+  return <header className="zen-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <span className="h4 mb-0">TokTickIT</span>
+    {user?.role === "REQUESTER" && !user.mustChangePassword && <nav className="d-flex gap-2" aria-label="Requester">
+      {[["my-tickets", "My Tickets"], ["create-ticket", "Create Ticket"]].map(([tab, label]) =>
+        <button type="button" key={tab} className={"zen-nav-pill border-0 " + (activeTab === tab ? "active" : "bg-transparent")}
+          onClick={() => onNavigate?.(tab)}>{label}</button>)}
+    </nav>}
+    {user && <div className="d-flex flex-wrap align-items-center gap-2">
+      <span>{user.name} · {user.role === "IT_STAFF" ? "IT Staff" : user.role === "ADMINISTRATOR" ? "Administrator" : "Requester"}</span>
+      {!user.mustChangePassword && <button type="button" className="btn btn-sm btn-light" onClick={onChangePassword}>Change password</button>}
+      <button type="button" className="btn btn-sm btn-light" disabled={busy} onClick={() => void signOut()}>{busy ? "Signing out..." : "Sign out"}</button>
+      {error && <span role="alert">{error}</span>}
+    </div>}
+  </header>;
 }
-
-export const Header: React.FC<HeaderProps> = ({
-  activeTab = "my-tickets",
-  onNavigate,
-}) => {
-  const { currentRequester, setIsSwitching } = useRequester();
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .substring(0, 2)
-      .toUpperCase();
-  };
-
-  return (
-    <header className="zen-header d-flex justify-content-between align-items-center">
-      <div className="d-flex align-items-center gap-4">
-        <div
-          className="d-flex align-items-center gap-2"
-          style={{ cursor: "pointer" }}
-          onClick={() => onNavigate && onNavigate("my-tickets")}
-        >
-          <span style={{ fontSize: "1.35rem", fontWeight: 700, letterSpacing: "-0.5px" }}>
-            TokTickIT
-          </span>
-        </div>
-
-        <nav className="d-none d-md-flex gap-2">
-          <button
-            type="button"
-            className={`zen-nav-pill border-0 ${
-              activeTab === "my-tickets" ? "active" : "bg-transparent"
-            }`}
-            onClick={() => onNavigate && onNavigate("my-tickets")}
-          >
-            📋 My Tickets
-          </button>
-          <button
-            type="button"
-            className={`zen-nav-pill border-0 ${
-              activeTab === "create-ticket" ? "active" : "bg-transparent"
-            }`}
-            onClick={() => onNavigate && onNavigate("create-ticket")}
-          >
-            ➕ Create Ticket
-          </button>
-        </nav>
-      </div>
-
-      <div className="d-flex align-items-center gap-3">
-        {currentRequester ? (
-          <div className="user-persona-badge">
-            <div className="avatar-circle">
-              {getInitials(currentRequester.name)}
-            </div>
-            <div className="d-none d-sm-block text-start">
-              <div style={{ fontWeight: 600, lineHeight: 1.2 }}>
-                {currentRequester.name}
-              </div>
-              <div style={{ fontSize: "0.7rem", opacity: 0.85 }}>
-                Requester
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn-switch-requester ms-2"
-              onClick={() => setIsSwitching(true)}
-              title="Switch development testing persona"
-            >
-              Switch
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-sm btn-light fw-bold"
-            onClick={() => setIsSwitching(true)}
-          >
-            Select Persona
-          </button>
-        )}
-      </div>
-    </header>
-  );
-};

@@ -3,7 +3,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RequesterProvider, useRequester } from "../../context/RequesterContext.js";
 import { RequesterSelector } from "../../components/RequesterSelector.js";
-import { Header } from "../../components/Header.js";
 import * as api from "../../api.js";
 
 const mockRequesters: api.RequesterUser[] = [
@@ -22,10 +21,11 @@ const mockRequesters: api.RequesterUser[] = [
 ];
 
 function TestConsumer() {
-  const { currentRequester, isSwitching, clearRequester } = useRequester();
+  const { currentRequester, isSwitching, clearRequester, setIsSwitching } = useRequester();
   return (
     <div>
-      <Header />
+      {/* Isolated historical selector harness; the live app uses AuthContext. */}
+      <button onClick={() => setIsSwitching(true)}>Switch</button>
       {!currentRequester || isSwitching ? (
         <RequesterSelector />
       ) : (
@@ -68,7 +68,7 @@ describe("Lab 2 (Issue #3) - RequesterContext & Selection UI", () => {
     ).toBeInTheDocument();
   });
 
-  it("selecting a requester updates context state, header pill, and persists to localStorage", async () => {
+  it("selecting a requester updates context state, and persists to localStorage", async () => {
     vi.spyOn(api, "getActiveRequesters").mockResolvedValue(mockRequesters);
 
     render(

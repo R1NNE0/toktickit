@@ -33,15 +33,42 @@ enum TicketStatus {
 // Lab 2 Models
 // ---------------------------------------------------------------------------
 
-model RequesterUser {
+enum UserRole {
+  REQUESTER
+  IT_STAFF
+  ADMINISTRATOR
+}
+
+model User {
   id        Int      @id @default(autoincrement())
   name      String
   email     String   @unique
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  emailNormalized String @unique
+  role UserRole @default(REQUESTER)
+  passwordHash String
+  mustChangePassword Boolean @default(true)
+  passwordChangedAt DateTime?
 
   tickets Ticket[]
+  sessions Session[]
+
+  @@map("RequesterUser")
+}
+
+model Session {
+  tokenHash String @id
+  userId Int?
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  csrfToken String
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime
+  expiresAt DateTime
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Category {
@@ -72,7 +99,7 @@ model Ticket {
   currentStatus     TicketStatus @default(NEW)
 
   requesterId     Int
-  requester       RequesterUser @relation(fields: [requesterId], references: [id])
+  requester       User @relation(fields: [requesterId], references: [id])
   categoryId      Int
   category        Category      @relation(fields: [categoryId], references: [id])
   relatedSystemId Int

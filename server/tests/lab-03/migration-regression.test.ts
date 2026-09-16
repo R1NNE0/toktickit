@@ -38,8 +38,83 @@ async function snapshot(db: PrismaClient) {
     attachments: await db.attachment.findMany({ orderBy: { id: "asc" } }),
   };
 }
+async function expectInitialLogin(db: PrismaClient, credential: Parameters<Handover>[0][number], role: string) {
+  const app = express(), auth = createAuth({ db: () => db, config: { origin: "http://localhost:5173", secure: false } });
+  app.use(express.json(), auth.load); app.use("/api/auth", auth.router); app.use(authErrorHandler);
+  const browser = request.agent(app), bootstrap = await browser.get("/api/auth/csrf").expect(200);
+  const login = await browser.post("/api/auth/login").set("Origin", "http://localhost:5173")
+    .set("X-CSRF-Token", bootstrap.body.csrfToken)
+    .send({ email: credential.email, password: credential.initialPassword }).expect(200);
+  expect(login.body.user).toMatchObject({ email: credential.email, role, mustChangePassword: true });
+  const denied = await browser.post("/api/auth/login").set("Origin", "http://localhost:5173")
+    .set("X-CSRF-Token", login.body.csrfToken)
+    .send({ email: credential.email, password: credential.initialPassword }).expect(403);
+  expect(denied.body.code).toBe("PASSWORD_CHANGE_REQUIRED");
+}
 describe("MIG-01/02/04 preserved migration and create-only seeds", () => {
   afterAll(async () => { await Promise.all(clients.map(db => db.$disconnect())); });
+  it("retries migration handover failure without stranding credentials or resetting completed accounts", async () => {
+    const { db, url } = await legacy(), before = await snapshot(db);
+    const delivered: Parameters<Handover>[0] = [];
+    let attempted = false;
+    await expect(migrateAuth(url, async values => {
+      if (values.some(value => value.email === "nonseed@example.com")) {
+        attempted = true;
+        throw new Error("Simulated handover failure after partial output");
+      }
+      delivered.push(...values);
+    })).rejects.toThrow("Simulated handover failure");
+    expect(attempted).toBe(true);
+    expect(await snapshot(db)).toEqual(before);
+    const pending = await db.$queryRaw<{ passwordHash: string | null }[]>`
+      SELECT "passwordHash" FROM "RequesterUser" WHERE email = 'nonseed@example.com'`;
+    expect(pending[0].passwordHash).toBeNull();
+    const completed = await db.$queryRaw<{ id: number; passwordHash: string }[]>`
+      SELECT id, "passwordHash" FROM "RequesterUser" WHERE "passwordHash" IS NOT NULL ORDER BY id`;
+    const final = await db.$queryRaw<{ count: bigint }[]>`
+      SELECT count(*) FROM "_prisma_migrations" WHERE migration_name = '20260915000200_auth_required_credentials'`;
+    expect(Number(final[0].count)).toBe(0);
+    const recovered: Parameters<Handover>[0] = [];
+    await migrateAuth(url, async values => { recovered.push(...values); });
+    expect(recovered.some(value => delivered.some(previous => previous.email === value.email))).toBe(false);
+    for (const account of completed) {
+      expect((await db.user.findUniqueOrThrow({ where: { id: account.id } })).passwordHash).toBe(account.passwordHash);
+    }
+    expect(await snapshot(db)).toEqual(before);
+    await expectInitialLogin(db, recovered.find(value => value.email === "nonseed@example.com")!, "REQUESTER");
+    const users = await db.user.findMany({ orderBy: { id: "asc" } });
+    await migrateAuth(url, async () => { throw new Error("Rerun must not hand over new credentials"); });
+    expect(await db.user.findMany({ orderBy: { id: "asc" } })).toEqual(users);
+  });
+  it("recovers seed Administrator credentials after handover failure and preserves them on rerun", async () => {
+    const { db, url } = await legacy();
+    await migrateAuth(url, async () => {});
+    const before = await snapshot(db);
+    let attempted = false;
+    await expect(seedLab3(db, async values => {
+      if (values.some(value => value.email === "admin@example.com")) {
+        attempted = true;
+        throw new Error("Simulated Administrator handover failure");
+      }
+    })).rejects.toThrow("Simulated Administrator handover failure");
+    expect(attempted).toBe(true);
+    expect(await db.user.findUnique({ where: { emailNormalized: "admin@example.com" } })).toBeNull();
+    const completed = await db.user.findMany({ orderBy: { id: "asc" } });
+    const recovered: Parameters<Handover>[0] = [];
+    await seedLab3(db, async values => { recovered.push(...values); });
+    expect(recovered.map(value => value.email)).toEqual(["admin@example.com"]);
+    for (const account of completed) {
+      expect(await db.user.findUniqueOrThrow({ where: { id: account.id } })).toEqual(account);
+    }
+    const after = await snapshot(db);
+    expect(after.tickets).toEqual(expect.arrayContaining(before.tickets));
+    expect(after.attachments).toEqual(expect.arrayContaining(before.attachments));
+    await expectInitialLogin(db, recovered[0], "ADMINISTRATOR");
+    const users = await db.user.findMany({ orderBy: { id: "asc" } });
+    await seedLab3(db, async () => { throw new Error("Rerun must not hand over new credentials"); });
+    expect(await db.user.findMany({ orderBy: { id: "asc" } })).toEqual(users);
+    expect(await snapshot(db)).toEqual(after);
+  });
   it("upgrades populated Lab 2 without changing IDs, values, relationships or bytes; reruns preserve hashes", async () => {
     const { db, url, file } = await legacy(), before = await snapshot(db);
     const digest = createHash("sha256").update(await readFile(file)).digest("hex");

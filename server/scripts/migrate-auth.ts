@@ -1,34 +1,29 @@
 import { PrismaClient } from "@prisma/client";
-import { randomBytes } from "node:crypto";
 import { mkdtemp, readFile, writeFile, readdir, mkdir, cp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
-import { hashPassword, normalizeEmail } from "../src/auth/password.js";
+import { normalizeEmail } from "../src/auth/password.js";
+import { prepareInitialPassword, terminalHandover, type Handover } from "./initial-credentials.js";
+export { terminalHandover, type Handover } from "./initial-credentials.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const finalMigration = "20260915000200_auth_required_credentials";
-export type Handover = (credentials: { id: number; email: string; initialPassword: string }[]) => Promise<void>;
 export async function provisionUsers(db: PrismaClient, handover: Handover) {
   // Raw projection deliberately tolerates temporary NULL hashes before final constraints.
   const users = await db.$queryRaw<{ id: number; email: string; emailNormalized: string | null; passwordHash: string | null }[]>
     `SELECT id, email, "emailNormalized", "passwordHash" FROM "RequesterUser" ORDER BY id`;
   const normalized = users.map(u => normalizeEmail(u.email));
   if (new Set(normalized).size !== users.length) throw new Error("Normalized email collision; provisioning stopped without changing accounts.");
-  const credentials: Parameters<Handover>[0] = [];
   for (const user of users) {
     if (user.passwordHash) continue;
-    const initialPassword = randomBytes(24).toString("base64url");
-    const hash = await hashPassword(initialPassword);
+    const hash = await prepareInitialPassword({ id: user.id, email: user.email }, handover);
     const changed = await db.$executeRaw`UPDATE "RequesterUser" SET "passwordHash" = ${hash},
       "emailNormalized" = ${normalizeEmail(user.email)}, "mustChangePassword" = true
       WHERE id = ${user.id} AND "passwordHash" IS NULL`;
-    if (changed) credentials.push({ id: user.id, email: user.email, initialPassword });
+    if (changed !== 1) throw new Error("Account changed during provisioning; the handed-over candidate was not installed. Existing credentials were preserved.");
   }
-  // Only the explicit local operator channel receives plaintext, never SQL/logs/files.
-  // Failure here requires an explicit later reset, not password regeneration on rerun.
-  if (credentials.length) await handover(credentials);
 }
 export async function deployThrough(databaseUrl: string, through?: string) {
   const temp = await mkdtemp(path.join(tmpdir(), "toktickit-auth-migrations-"));
@@ -65,12 +60,8 @@ export async function migrateAuth(databaseUrl: string, handover: Handover) {
     await deployThrough(databaseUrl, finalMigration);
   } finally { await db.$disconnect(); }
 }
-export const terminalHandover: Handover = async credentials => {
-  if (!process.stdout.isTTY) throw new Error("Initial passwords require a private interactive terminal; redirected output is forbidden.");
-  for (const value of credentials) process.stdout.write(JSON.stringify(value) + "\n");
-};
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (!process.stdout.isTTY || !process.env.DATABASE_URL) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY || !process.env.DATABASE_URL) {
     console.error("Use a private interactive terminal with an explicit DATABASE_URL. Initial credentials are shown once; do not log or commit them.");
     process.exitCode = 1;
   } else {

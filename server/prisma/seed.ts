@@ -1,14 +1,11 @@
 import { PrismaClient, UserRole } from "@prisma/client";
-import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { hashPassword, normalizeEmail } from "../src/auth/password.js";
-import { terminalHandover, type Handover } from "../scripts/migrate-auth.js";
+import { normalizeEmail } from "../src/auth/password.js";
+import { prepareInitialPassword, terminalHandover, type Handover } from "../scripts/initial-credentials.js";
 import { getPrisma } from "../src/prisma.js";
 
 export async function seedLab3(prisma: PrismaClient, handover: Handover) {
-  const credentials: Parameters<Handover>[0] = [];
-
 
   // 1. Seed Categories (4 required categories)
   const categories = [
@@ -92,10 +89,9 @@ export async function seedLab3(prisma: PrismaClient, handover: Handover) {
     const emailNormalized = normalizeEmail(identity.email);
     let record = await prisma.user.findUnique({ where: { emailNormalized } });
     if (!record) {
-      const initialPassword = randomBytes(24).toString("base64url");
+      const passwordHash = await prepareInitialPassword({ email: identity.email }, handover);
       record = await prisma.user.create({ data: { ...identity, emailNormalized,
-        passwordHash: await hashPassword(initialPassword), mustChangePassword: true } });
-      credentials.push({ id: record.id, email: record.email, initialPassword });
+        passwordHash, mustChangePassword: true } });
     }
     requesterMap.set(identity.email, record.id);
   }
@@ -220,10 +216,9 @@ export async function seedLab3(prisma: PrismaClient, handover: Handover) {
   }
 
 
-  if (credentials.length) await handover(credentials);
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (!process.stdout.isTTY || !process.env.DATABASE_URL) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY || !process.env.DATABASE_URL) {
     console.error("Use a private interactive terminal and explicit DATABASE_URL; never redirect initial passwords.");
     process.exitCode = 1;
   } else {

@@ -6,20 +6,35 @@ import crypto from "crypto";
 import multer from "multer";
 import { getPrisma } from "./prisma.js";
 import { requireRequester } from "./middleware/requesterAuth.js";
+import { createAuth, authErrorHandler, requireNormal } from "./auth/http.js";
 import { generateTicketNumber } from "./utils/ticketNumber.js";
 
 // The Express app is exported separately from app.listen() (see index.ts) so
 // Supertest can import `app` without opening a port. Do not merge these files.
 export const app = express();
 
-app.use(cors()); // already wired: lets the Vite dev server call this API
-app.use(express.json());
+const auth = createAuth();
+app.use(cors({ origin: auth.config.origin, credentials: true }));
+app.use(express.json({ limit: "128kb" }));
+app.use("/api", auth.load);
+app.use("/api/auth", auth.router);
+// A restricted identity cannot reach any normal API, including public reference data.
+app.use("/api", (req, res, next) => {
+  try {
+    if (req.auth?.user?.mustChangePassword) requireNormal(req);
+    next();
+  } catch (error) { next(error); }
+});
+app.use(["/api/tickets", "/api/attachments"], (req, res, next) => {
+  if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) auth.mutation(req, res, next);
+  else next();
+});
 
 // Max 32-bit signed integer boundary (PostgreSQL serial/int)
 const MAX_INT = 2147483647;
 
 // Ensure upload directory exists
-const uploadDir = path.resolve(process.cwd(), "uploads/lab-02");
+const uploadDir = path.resolve(process.cwd(), process.env.TEST_UPLOAD_ROOT ?? "uploads/lab-02");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -91,28 +106,8 @@ app.get("/api/categories", async (_req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // Lab 2 (Issue #3) — Active Development Requesters
 // ---------------------------------------------------------------------------
-app.get("/api/requesters/active", async (_req: Request, res: Response) => {
-  try {
-    const requesters = await getPrisma().requesterUser.findMany({
-      where: {
-        isActive: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        isActive: true,
-      },
-      orderBy: {
-        name: "asc",
-      },
-    });
-    res.status(200).json(requesters);
-  } catch (err) {
-    console.error("GET /api/requesters/active error:", err);
-    res.status(500).json({ error: "Failed to retrieve active requesters" });
-  }
-});
+// The development identity directory cannot establish an authenticated identity.
+app.get("/api/requesters/active", (_req, res) => { res.status(404).json({ error: "Not found." }); });
 
 // ---------------------------------------------------------------------------
 // Lab 2 — Related Systems list
@@ -834,6 +829,8 @@ app.delete(
     }
   }
 );
+
+app.use(authErrorHandler);
 
 export default app;
 

@@ -1,9 +1,11 @@
+import { PrismaClient, UserRole } from "@prisma/client";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { normalizeEmail } from "../src/auth/password.js";
+import { prepareInitialPassword, terminalHandover, type Handover } from "../scripts/initial-credentials.js";
 import { getPrisma } from "../src/prisma.js";
 
-async function main() {
-  const prisma = getPrisma();
-
-  console.log("Starting idempotent seed for Lab 2...");
+export async function seedLab3(prisma: PrismaClient, handover: Handover) {
 
   // 1. Seed Categories (4 required categories)
   const categories = [
@@ -17,12 +19,12 @@ async function main() {
   for (const cat of categories) {
     const record = await prisma.category.upsert({
       where: { name: cat.name },
-      update: { isActive: cat.isActive },
+      update: {},
       create: cat,
     });
     categoryMap.set(record.name, record.id);
   }
-  console.log(`✓ Seeded ${categories.length} categories.`);
+
 
   // 2. Seed Related Systems (7 systems)
   const relatedSystems = [
@@ -39,12 +41,12 @@ async function main() {
   for (const sys of relatedSystems) {
     const record = await prisma.relatedSystem.upsert({
       where: { name: sys.name },
-      update: { isActive: sys.isActive },
+      update: {},
       create: sys,
     });
     systemMap.set(record.name, record.id);
   }
-  console.log(`✓ Seeded ${relatedSystems.length} related systems.`);
+
 
   // 3. Seed Development Requesters (4 active, 1 inactive)
   const requesters = [
@@ -75,16 +77,24 @@ async function main() {
     },
   ];
 
+  const identities = [
+    ...requesters.map(r => ({ ...r, role: UserRole.REQUESTER })),
+    ...["Alex Morgan", "Casey Parker", "Jamie Reed", "Inactive Staff"].map((name, i) => ({
+      name, email: "staff" + (i + 1) + "@example.com", isActive: i < 3, role: UserRole.IT_STAFF
+    })),
+    { name: "Local Administrator", email: "admin@example.com", isActive: true, role: UserRole.ADMINISTRATOR },
+  ];
   const requesterMap = new Map<string, number>();
-  for (const req of requesters) {
-    const record = await prisma.requesterUser.upsert({
-      where: { email: req.email },
-      update: { name: req.name, isActive: req.isActive },
-      create: req,
-    });
-    requesterMap.set(record.email, record.id);
+  for (const identity of identities) {
+    const emailNormalized = normalizeEmail(identity.email);
+    let record = await prisma.user.findUnique({ where: { emailNormalized } });
+    if (!record) {
+      const passwordHash = await prepareInitialPassword({ email: identity.email }, handover);
+      record = await prisma.user.create({ data: { ...identity, emailNormalized,
+        passwordHash, mustChangePassword: true } });
+    }
+    requesterMap.set(identity.email, record.id);
   }
-  console.log(`✓ Seeded ${requesters.length} requester users.`);
 
   // 4. Seed Sample Tickets
   const jenniferId = requesterMap.get("jennifer.anderson@example.com")!;
@@ -157,21 +167,12 @@ async function main() {
   for (const t of sampleTickets) {
     const record = await prisma.ticket.upsert({
       where: { ticketNumber: t.ticketNumber },
-      update: {
-        summary: t.summary,
-        description: t.description,
-        requestedPriority: t.requestedPriority,
-        itPriority: t.itPriority,
-        currentStatus: t.currentStatus,
-        requesterId: t.requesterId,
-        categoryId: t.categoryId,
-        relatedSystemId: t.relatedSystemId,
-      },
+      update: {},
       create: t,
     });
     ticketMap.set(record.ticketNumber, record.id);
   }
-  console.log(`✓ Seeded ${sampleTickets.length} sample tickets.`);
+
 
   // 5. Seed Sample Attachments (for TKT-2026-000101)
   const ticket101Id = ticketMap.get("TKT-2026-000101")!;
@@ -204,12 +205,7 @@ async function main() {
       },
     });
 
-    if (existing) {
-      await prisma.attachment.update({
-        where: { id: existing.id },
-        data: att,
-      });
-    } else {
+    if (!existing) {
       await prisma.attachment.create({
         data: {
           ticketId: ticket101Id,
@@ -218,16 +214,17 @@ async function main() {
       });
     }
   }
-  console.log(`✓ Seeded sample attachments for ticket TKT-2026-000101.`);
 
-  console.log("Idempotent seed completed successfully.");
+
 }
-
-main()
-  .catch((e) => {
-    console.error("Seed failed:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await getPrisma().$disconnect();
-  });
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY || !process.env.DATABASE_URL) {
+    console.error("Use a private interactive terminal and explicit DATABASE_URL; never redirect initial passwords.");
+    process.exitCode = 1;
+  } else {
+    seedLab3(getPrisma(), terminalHandover)
+      .then(() => console.log("Create-only seed complete. Existing accounts and records were preserved."))
+      .catch(() => { console.error("Seed failed; no existing credentials were reset."); process.exitCode = 1; })
+      .finally(() => getPrisma().$disconnect());
+  }
+}

@@ -1,3 +1,4 @@
+import { requesterHeaders } from "../lab-03/legacy-session.js";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import path from "path";
@@ -17,7 +18,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
 
   beforeAll(async () => {
     // 1. Fetch active requesters
-    const requesters = await prisma.requesterUser.findMany({
+    const requesters = await prisma.user.findMany({
       where: { isActive: true },
     });
     expect(requesters.length).toBeGreaterThanOrEqual(2);
@@ -79,7 +80,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
 
       const res = await request(app)
         .post("/api/tickets")
-        .set("x-requester-id", activeRequesterId.toString())
+        .set(await requesterHeaders(activeRequesterId))
         .send(payload);
 
       expect(res.status).toBe(201);
@@ -109,7 +110,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
       // First submit
       const res1 = await request(app)
         .post("/api/tickets")
-        .set("x-requester-id", activeRequesterId.toString())
+        .set(await requesterHeaders(activeRequesterId))
         .send(payload);
 
       expect(res1.status).toBe(201);
@@ -119,7 +120,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
       // Second submit with the same idempotency key
       const res2 = await request(app)
         .post("/api/tickets")
-        .set("x-requester-id", activeRequesterId.toString())
+        .set(await requesterHeaders(activeRequesterId))
         .send(payload);
 
       expect(res2.status).toBe(200);
@@ -130,7 +131,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
     it("rejects ticket submission when mandatory summary or description is missing or whitespace (API-02 / AC-02)", async () => {
       const res = await request(app)
         .post("/api/tickets")
-        .set("x-requester-id", activeRequesterId.toString())
+        .set(await requesterHeaders(activeRequesterId))
         .send({
           summary: "   ",
           description: "",
@@ -149,7 +150,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
     it("rejects ticket submission with invalid or inactive categoryId", async () => {
       const res = await request(app)
         .post("/api/tickets")
-        .set("x-requester-id", activeRequesterId.toString())
+        .set(await requesterHeaders(activeRequesterId))
         .send({
           summary: "Valid summary",
           description: "Valid description",
@@ -161,7 +162,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
       expect(res.body.error).toMatch(/Category does not exist/i);
     });
 
-    it("rejects ticket submission without x-requester-id header", async () => {
+    it("rejects ticket submission without an authenticated session", async () => {
       const res = await request(app).post("/api/tickets").send({
         summary: "Valid summary",
         description: "Valid description",
@@ -169,8 +170,8 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
         relatedSystemId: activeRelatedSystemId,
       });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/x-requester-id/i);
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe("UNAUTHENTICATED");
     });
   });
 
@@ -194,7 +195,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
     it("successfully uploads a valid PDF attachment (API-08 / AC-07)", async () => {
       const res = await request(app)
         .post(`/api/tickets/${testTicketId}/attachments`)
-        .set("x-requester-id", activeRequesterId.toString())
+        .set(await requesterHeaders(activeRequesterId))
         .attach("file", tempFilePath);
 
       expect(res.status).toBe(201);
@@ -208,7 +209,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
     it("rejects unsupported file MIME type like .exe (API-09 / BR-06)", async () => {
       const res = await request(app)
         .post(`/api/tickets/${testTicketId}/attachments`)
-        .set("x-requester-id", activeRequesterId.toString())
+        .set(await requesterHeaders(activeRequesterId))
         .attach("file", invalidExtFilePath);
 
       expect(res.status).toBe(400);
@@ -218,7 +219,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
     it("rejects oversized file exceeding 5 MB limit (API-09 / BR-06)", async () => {
       const res = await request(app)
         .post(`/api/tickets/${testTicketId}/attachments`)
-        .set("x-requester-id", activeRequesterId.toString())
+        .set(await requesterHeaders(activeRequesterId))
         .attach("file", oversizedFilePath);
 
       expect(res.status).toBe(413);
@@ -228,7 +229,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
     it("rejects attachment upload to another requester's ticket with 403 Forbidden (FR-11 / AC-06)", async () => {
       const res = await request(app)
         .post(`/api/tickets/${testTicketId}/attachments`)
-        .set("x-requester-id", otherRequesterId.toString())
+        .set(await requesterHeaders(otherRequesterId))
         .attach("file", tempFilePath);
 
       expect(res.status).toBe(403);
@@ -254,7 +255,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
           data: {
             ticketId: ticket.id,
             fileName: `existing_${i}.pdf`,
-            storedPath: `uploads/lab-02/mock_${i}.pdf`,
+            storedPath: `${process.env.TEST_UPLOAD_ROOT}/mock_${i}.pdf`,
             fileSize: 1024,
             mimeType: "application/pdf",
             isRemoved: false,
@@ -265,7 +266,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
       // Attempt 6th upload
       const res = await request(app)
         .post(`/api/tickets/${ticket.id}/attachments`)
-        .set("x-requester-id", activeRequesterId.toString())
+        .set(await requesterHeaders(activeRequesterId))
         .attach("file", tempFilePath);
 
       expect(res.status).toBe(400);

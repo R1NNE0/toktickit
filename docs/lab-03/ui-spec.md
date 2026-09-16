@@ -52,7 +52,7 @@ States: empty form; inline missing/malformed email/password validation; signing-
 
 Show current/initial password, New Password, Confirm New Password; current-password/new-password autocomplete as appropriate. Explain 15–128 characters, spaces allowed, no current-password reuse. Use the same validation on frontend/backend and show mismatched confirmation near confirmation field.
 
-Mandatory mode explains why the change is required; no cancel-to-application link. Saving disables submit; errors preserve nonsecret context and permit retry; successful response rotates the session and enters the correct role home. Normal application remains unavailable if save fails or a direct navigation is attempted. Voluntary mode uses the same form and allows Cancel back to role home. Clear password fields when leaving/succeeding, never store them in localStorage, URLs, analytics or error messages.
+Mandatory mode explains why the change is required; no cancel-to-application or re-login action. Only current-user/CSRF bootstrap, password change and logout are permitted for the restricted session; a direct login request returns 403 PASSWORD_CHANGE_REQUIRED and leaves it restricted. Saving disables submit; errors preserve nonsecret context and permit retry; successful response rotates the session and enters the correct role home. Normal application remains unavailable if save fails or a direct navigation is attempted. Voluntary mode uses the same form and allows Cancel back to role home. Clear password fields when leaving/succeeding, never store them in localStorage, URLs, analytics or error messages.
 
 ## 5. Requester continuity
 
@@ -74,7 +74,7 @@ Show grouped read-only number/date, Requester, summary/description, category/sys
 
 Add Public Comments with author/time, multiline composer, 4000-character limit, busy state and paginated chronological entries (10/page; Load More). No Internal Notes section, counts, hidden note data, or note requests for Requesters.
 
-Add “Problem Appears Resolved” only for own tickets in the five permitted active-workflow states. Confirm explanatory text: “This informs IT Staff; it does not close your ticket.” Show submitted timestamp/indicator after success and prevent unnecessary repeat clicks. Formal status controls never appear; Requester may describe a reopening request in Public Comments.
+Add “Problem Appears Resolved” only for own tickets in the five permitted active-workflow states. Confirm explanatory text: “This informs IT Staff; it does not close your ticket.” Show submitted timestamp/indicator after success and prevent unnecessary repeat clicks. After IT Staff reopens the ticket, reload its server state, clear the previous indication/timestamp, and re-enable the action for the new work cycle; the Requester still performs no formal status transition. Formal status controls never appear; Requester may describe a reopening request in Public Comments.
 
 ## 6. IT Staff Ticket Queue
 

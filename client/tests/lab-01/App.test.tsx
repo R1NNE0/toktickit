@@ -4,11 +4,17 @@ import userEvent from "@testing-library/user-event";
 import App from "../../src/App.js";
 import * as api from "../../src/api.js";
 
+vi.mock("../../src/auth-client.js", async importOriginal => {
+  const actual = await importOriginal<typeof import("../../src/auth-client.js")>();
+  return { ...actual, bootstrapCsrf: vi.fn().mockResolvedValue(undefined),
+    authRequest: vi.fn().mockRejectedValue(new actual.AuthError("Please sign in.", 401, "UNAUTHENTICATED")) };
+});
 describe("App", () => {
   // WORKED EXAMPLE — provided for you.
-  it("renders the TokTickIT heading", () => {
+  it("renders the TokTickIT heading", async () => {
     render(<App />);
     expect(screen.getByText(/TokTickIT/i)).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Sign in" });
   });
 
   it("shows Online and the seeded categories on success", async () => {

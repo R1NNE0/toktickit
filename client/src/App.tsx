@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { SessionRequesterProvider, useRequester } from "./context/RequesterContext.js";
 import { Header } from "./components/Header.js";
 import { AuthProvider, useAuth } from "./context/AuthContext.js";
 import { Login } from "./components/Login.js";
@@ -24,8 +23,8 @@ function LogoutRetry() {
 }
 
 function MainContent() {
-  const { currentRequester } = useRequester();
   const auth = useAuth();
+  const currentRequester = auth.user;
   const [changingPassword, setChangingPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("my-tickets");
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
@@ -102,6 +101,7 @@ function MainContent() {
             {/* Tab Navigation Views */}
             {activeTab === "create-ticket" ? (
               <CreateTicket
+                onViewTicket={id => { setSelectedTicketId(id); setActiveTab("my-tickets"); setIsFormDirty(false); }}
                 onSuccessNavigate={() => {
                   setSelectedTicketId(null);
                   setActiveTab("my-tickets");
@@ -180,7 +180,7 @@ function MainContent() {
 
 function SessionApp() {
   const { user } = useAuth();
-  return <SessionRequesterProvider user={user}><MainContent key={user ? user.id + ":" + user.mustChangePassword : "signed-out"} /></SessionRequesterProvider>;
+  return <MainContent key={user ? user.id + ":" + user.role + ":" + user.mustChangePassword : "signed-out"} />;
 }
 
 export default function App() {

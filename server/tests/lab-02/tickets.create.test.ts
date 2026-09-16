@@ -19,7 +19,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
   beforeAll(async () => {
     // 1. Fetch active requesters
     const requesters = await prisma.user.findMany({
-      where: { isActive: true },
+      where: { isActive: true, role: "REQUESTER" },
     });
     expect(requesters.length).toBeGreaterThanOrEqual(2);
     activeRequesterId = requesters[0].id;
@@ -68,6 +68,27 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
   });
 
   describe("POST /api/tickets (Create Ticket)", () => {
+    it.each(["LOW", "MEDIUM", "HIGH", "CRITICAL"])("copies %s into new IT Priority without changing historical priorities (API-08)", async priority => {
+      const historical = await prisma.ticket.findMany({ select: { id: true, itPriority: true } });
+      const res = await request(app).post("/api/tickets").set(await requesterHeaders(activeRequesterId)).send({
+        summary: "Priority continuity", description: "Keep existing priority values", categoryId: activeCategoryId,
+        relatedSystemId: activeRelatedSystemId, requestedPriority: priority,
+      }).expect(201);
+      expect(res.body.requestedPriority).toBe(priority); expect(res.body.itPriority).toBe(priority);
+      expect(res.body.attachments).toEqual([]);
+      expect(await prisma.ticket.findMany({ where: { id: { in: historical.map(t => t.id) } }, select: { id: true, itPriority: true } })).toEqual(historical);
+    });
+    it("converges concurrent same-key submissions while keeping keys requester-scoped (API-08)", async () => {
+      const payload = { summary: "Concurrent retry", description: "One ticket per requester/key", categoryId: activeCategoryId,
+        relatedSystemId: activeRelatedSystemId, idempotencyKey: crypto.randomUUID() };
+      const headers = await requesterHeaders(activeRequesterId);
+      const responses = await Promise.all([request(app).post("/api/tickets").set(headers).send(payload), request(app).post("/api/tickets").set(headers).send(payload)]);
+      expect(responses.map(r => r.status).sort()).toEqual([200, 201]);
+      expect(responses[0].body.id).toBe(responses[1].body.id);
+      expect(await prisma.ticket.count({ where: { requesterId: activeRequesterId, idempotencyKey: payload.idempotencyKey } })).toBe(1);
+      const other = await request(app).post("/api/tickets").set(await requesterHeaders(otherRequesterId)).send(payload).expect(201);
+      expect(other.body.id).not.toBe(responses[0].body.id);
+    });
     it("successfully creates a ticket with unique TKT-YYYY-XXXXXX number (API-01 / AC-01)", async () => {
       const payload = {
         summary: "Cannot access internal grading portal",
@@ -89,7 +110,7 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
       expect(res.body.summary).toBe(payload.summary);
       expect(res.body.description).toBe(payload.description);
       expect(res.body.requestedPriority).toBe("HIGH");
-      expect(res.body.itPriority).toBe("MEDIUM");
+      expect(res.body.itPriority).toBe("HIGH");
       expect(res.body.currentStatus).toBe("NEW");
       expect(res.body.requesterId).toBe(activeRequesterId);
       expect(res.body.category.id).toBe(activeCategoryId);
@@ -226,14 +247,14 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
       expect(res.body.error).toMatch(/5 MB/i);
     });
 
-    it("rejects attachment upload to another requester's ticket with 403 Forbidden (FR-11 / AC-06)", async () => {
+    it("rejects attachment upload to another requester's ticket with safe 404 (FR-11 / AC-06)", async () => {
       const res = await request(app)
         .post(`/api/tickets/${testTicketId}/attachments`)
         .set(await requesterHeaders(otherRequesterId))
         .attach("file", tempFilePath);
 
-      expect(res.status).toBe(403);
-      expect(res.body.error).toMatch(/Forbidden/i);
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe("NOT_FOUND");
     });
 
     it("rejects attachment upload when active attachment limit of 5 is exceeded (API-10 / BR-07)", async () => {

@@ -24,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally { if (version === generation.current) setLoading(false); }
   }
   useEffect(() => {
+    try { localStorage.removeItem("toktickit_selected_requester_id"); } catch { /* Storage is not an identity source. */ }
     void reload();
     const expired = () => { clearCsrf(); void reload(); };
     window.addEventListener("toktickit:session-expired", expired);

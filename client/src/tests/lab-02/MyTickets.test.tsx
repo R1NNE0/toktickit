@@ -1,18 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { RequesterProvider } from "../../context/RequesterContext.js";
+const sessionUser = { id: 1, name: "Jennifer Anderson", email: "jennifer.anderson@example.com", role: "REQUESTER", isActive: true, mustChangePassword: false };
+vi.mock("../../context/AuthContext.js", () => ({ useAuth: () => ({ user: sessionUser }) }));
 import { MyTickets } from "../../components/MyTickets.js";
 import * as api from "../../api.js";
-
-const mockRequesters: api.RequesterUser[] = [
-  {
-    id: 1,
-    name: "Jennifer Anderson",
-    email: "jennifer.anderson@example.com",
-    isActive: true,
-  },
-];
 
 const mockCategories: api.Category[] = [
   { id: 1, name: "Hardware", isActive: true },
@@ -35,17 +27,7 @@ const mockTicketsResponse: api.PaginatedTicketsResponse = {
       createdAt: "2026-03-01T10:00:00.000Z",
       updatedAt: "2026-03-01T10:00:00.000Z",
       category: { id: 1, name: "Hardware" },
-      attachments: [
-        {
-          id: 1,
-          ticketId: 101,
-          fileName: "battery-report.pdf",
-          fileSize: 10240,
-          mimeType: "application/pdf",
-          isRemoved: false,
-          createdAt: "2026-03-01T10:00:00.000Z",
-        },
-      ],
+      attachmentCount: 1,
     },
     {
       id: 102,
@@ -61,7 +43,7 @@ const mockTicketsResponse: api.PaginatedTicketsResponse = {
       createdAt: "2026-03-02T11:00:00.000Z",
       updatedAt: "2026-03-02T11:00:00.000Z",
       category: { id: 2, name: "Software" },
-      attachments: [],
+      attachmentCount: 0,
     },
   ],
   pagination: {
@@ -75,10 +57,8 @@ const mockTicketsResponse: api.PaginatedTicketsResponse = {
 describe("Lab 2 (Issue #5) - MyTickets Component", () => {
   beforeEach(() => {
     localStorage.clear();
-    localStorage.setItem("toktickit_selected_requester_id", "1");
     vi.clearAllMocks();
 
-    vi.spyOn(api, "getActiveRequesters").mockResolvedValue(mockRequesters);
     vi.spyOn(api, "getCategories").mockResolvedValue(mockCategories);
     vi.spyOn(api, "getTickets").mockResolvedValue(mockTicketsResponse);
   });
@@ -89,9 +69,9 @@ describe("Lab 2 (Issue #5) - MyTickets Component", () => {
 
   it("renders ticket table rows matching current requester (UI-03 / AC-04)", async () => {
     render(
-      <RequesterProvider>
+      <>
         <MyTickets />
-      </RequesterProvider>
+      </>
     );
 
     expect(
@@ -118,9 +98,9 @@ describe("Lab 2 (Issue #5) - MyTickets Component", () => {
     const getTicketsSpy = vi.spyOn(api, "getTickets");
 
     render(
-      <RequesterProvider>
+      <>
         <MyTickets />
-      </RequesterProvider>
+      </>
     );
 
     await screen.findAllByText("TKT-2026-000101");
@@ -144,9 +124,9 @@ describe("Lab 2 (Issue #5) - MyTickets Component", () => {
     const getTicketsSpy = vi.spyOn(api, "getTickets");
 
     render(
-      <RequesterProvider>
+      <>
         <MyTickets />
-      </RequesterProvider>
+      </>
     );
 
     await screen.findAllByText("TKT-2026-000101");
@@ -185,9 +165,9 @@ describe("Lab 2 (Issue #5) - MyTickets Component", () => {
       .mockResolvedValue(multiPageResponse);
 
     render(
-      <RequesterProvider>
+      <>
         <MyTickets />
-      </RequesterProvider>
+      </>
     );
 
     await screen.findAllByText("TKT-2026-000101");
@@ -217,9 +197,9 @@ describe("Lab 2 (Issue #5) - MyTickets Component", () => {
     const onNavigateCreate = vi.fn();
 
     render(
-      <RequesterProvider>
+      <>
         <MyTickets onNavigateCreate={onNavigateCreate} />
-      </RequesterProvider>
+      </>
     );
 
     expect(
@@ -245,9 +225,9 @@ describe("Lab 2 (Issue #5) - MyTickets Component", () => {
     });
 
     render(
-      <RequesterProvider>
+      <>
         <MyTickets />
-      </RequesterProvider>
+      </>
     );
 
     const searchInput = screen.getByLabelText(/Search tickets/i);

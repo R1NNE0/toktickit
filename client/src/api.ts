@@ -1,6 +1,5 @@
 import { sessionFetch } from "./auth-client.js";
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-const REQUESTER_STORAGE_KEY = "toktickit_selected_requester_id";
 
 export interface Category {
   id: number;
@@ -12,13 +11,6 @@ export interface RelatedSystem {
   id: number;
   name: string;
   isActive?: boolean;
-}
-
-export interface RequesterUser {
-  id: number;
-  name: string;
-  email: string;
-  isActive: boolean;
 }
 
 export interface SystemStatus {
@@ -63,6 +55,7 @@ export interface Ticket {
   relatedSystem?: { id: number; name: string };
   requester?: { id: number; name: string; email: string };
   attachments?: Attachment[];
+  attachmentCount?: number;
 }
 
 export interface CreateTicketPayload {
@@ -101,24 +94,6 @@ export interface PaginatedTicketsResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Storage Helpers
-// ---------------------------------------------------------------------------
-export function getStoredRequesterId(): number | null {
-  const val = localStorage.getItem(REQUESTER_STORAGE_KEY);
-  if (!val) return null;
-  const parsed = parseInt(val, 10);
-  return isNaN(parsed) ? null : parsed;
-}
-
-export function setStoredRequesterId(id: number | null): void {
-  if (id === null) {
-    localStorage.removeItem(REQUESTER_STORAGE_KEY);
-  } else {
-    localStorage.setItem(REQUESTER_STORAGE_KEY, id.toString());
-  }
-}
-
-// ---------------------------------------------------------------------------
 // API Client Functions
 // ---------------------------------------------------------------------------
 export async function getHealthStatus(): Promise<HealthResponse> {
@@ -137,14 +112,6 @@ export async function getCategories(): Promise<Category[]> {
   return res.json();
 }
 
-export async function getActiveRequesters(): Promise<RequesterUser[]> {
-  const res = await fetch(`${API_URL}/api/requesters/active`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch active requesters with status ${res.status}`);
-  }
-  return res.json();
-}
-
 export async function getRelatedSystems(): Promise<RelatedSystem[]> {
   const res = await fetch(`${API_URL}/api/related-systems`);
   if (!res.ok) {
@@ -154,7 +121,7 @@ export async function getRelatedSystems(): Promise<RelatedSystem[]> {
 }
 
 /**
- * Authenticated fetch helper: automatically injects `x-requester-id` header.
+ * Authenticated fetch helper: sends the server session cookie and CSRF token.
  */
 export async function authFetch(
   endpoint: string,
@@ -188,14 +155,15 @@ export async function createTicket(
 
 export async function uploadAttachment(
   ticketId: number,
-  file: File
+  file: File,
+  signal?: AbortSignal
 ): Promise<Attachment> {
   const formData = new FormData();
   formData.append("file", file);
 
   const res = await authFetch(`/api/tickets/${ticketId}/attachments`, {
     method: "POST",
-    body: formData,
+    body: formData, signal,
   });
 
   if (!res.ok) {
@@ -264,9 +232,10 @@ export async function getTicketDetail(id: number): Promise<Ticket> {
 
 export async function downloadAttachment(
   attachmentId: number,
-  fileName: string
+  fileName: string,
+  signal?: AbortSignal
 ): Promise<void> {
-  const res = await authFetch(`/api/attachments/${attachmentId}/download`);
+  const res = await authFetch(`/api/attachments/${attachmentId}/download`, { signal });
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(
@@ -275,6 +244,7 @@ export async function downloadAttachment(
   }
 
   const blob = await res.blob();
+  signal?.throwIfAborted();
   const downloadUrl = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = downloadUrl;

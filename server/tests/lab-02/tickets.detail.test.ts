@@ -88,15 +88,14 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
       expect(found.isRemoved).toBe(false);
     });
 
-    it("rejects cross-requester access with 403 Forbidden when Requester B attempts to view Requester A's ticket (API-07 / FR-11 / AC-06)", async () => {
+    it("rejects cross-requester access with safe 404 when Requester B attempts to view Requester A's ticket (API-07 / FR-11 / AC-06)", async () => {
       // Michael attempts to fetch Jennifer's ticket
       const res = await request(app)
         .get(`/api/tickets/${jenniferTicketId}`)
         .set(await requesterHeaders(michaelId));
 
-      expect(res.status).toBe(403);
-      expect(res.body).toHaveProperty("error");
-      expect(res.body.error).toMatch(/Forbidden|permission/i);
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe("NOT_FOUND");
     });
 
     it("returns 404 Not Found for non-existent ticket ID", async () => {
@@ -137,9 +136,8 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
         .get(`/api/attachments/${activeAttachmentId}/download`)
         .set(await requesterHeaders(michaelId));
 
-      expect(res.status).toBe(403);
-      expect(res.body).toHaveProperty("error");
-      expect(res.body.error).toMatch(/permission|Forbidden/i);
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe("NOT_FOUND");
     });
   });
 
@@ -154,14 +152,14 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
       expect(res.body.error).toMatch(/reason is required/i);
     });
 
-    it("blocks removal with 403 Forbidden when another requester attempts to delete", async () => {
+    it("blocks removal with safe 404 when another requester attempts to delete", async () => {
       const res = await request(app)
         .delete(`/api/attachments/${activeAttachmentId}`)
         .set(await requesterHeaders(michaelId))
         .send({ reason: "Unauthorized attempt" });
 
-      expect(res.status).toBe(403);
-      expect(res.body.error).toMatch(/permission|Forbidden/i);
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe("NOT_FOUND");
     });
 
     it("soft-removes attachment with reason, updates DB, and keeps physical file on disk (API-12 / FR-10 / AC-08)", async () => {

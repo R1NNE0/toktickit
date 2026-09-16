@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext.js";
 export function Header({ activeTab = "my-tickets", onNavigate, onChangePassword }: {
   activeTab?: string; onNavigate?: (tab: string) => void; onChangePassword?: () => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   async function signOut() {
@@ -13,11 +14,12 @@ export function Header({ activeTab = "my-tickets", onNavigate, onChangePassword 
   }
   return <header className="zen-header d-flex flex-wrap justify-content-between align-items-center gap-3">
     <span className="h4 mb-0">TokTickIT</span>
-    {user?.role === "REQUESTER" && !user.mustChangePassword && <nav className="d-flex gap-2" aria-label="Requester">
+    {user?.role === "REQUESTER" && !user.mustChangePassword && <><button className="btn btn-light requester-menu-toggle" aria-expanded={menuOpen} aria-controls="requester-navigation" onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
+    <nav id="requester-navigation" className={"d-flex gap-2 requester-navigation " + (menuOpen ? "is-open" : "")} aria-label="Requester">
       {[["my-tickets", "My Tickets"], ["create-ticket", "Create Ticket"]].map(([tab, label]) =>
         <button type="button" key={tab} className={"zen-nav-pill border-0 " + (activeTab === tab ? "active" : "bg-transparent")}
-          onClick={() => onNavigate?.(tab)}>{label}</button>)}
-    </nav>}
+          aria-current={activeTab === tab ? "page" : undefined} onClick={() => { onNavigate?.(tab); setMenuOpen(false); }}>{label}</button>)}
+    </nav></>}
     {user && <div className="d-flex flex-wrap align-items-center gap-2">
       <span>{user.name} · {user.role === "IT_STAFF" ? "IT Staff" : user.role === "ADMINISTRATOR" ? "Administrator" : "Requester"}</span>
       {!user.mustChangePassword && <button type="button" className="btn btn-sm btn-light" onClick={onChangePassword}>Change password</button>}

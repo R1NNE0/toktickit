@@ -115,7 +115,13 @@ describe("Lab 2 (Issue #5) - GET /api/tickets (My Tickets List, Search, Filter, 
   });
 
   it("supports pagination with total, totalPages, page, and pageSize metadata (API-05 / AC-05)", async () => {
-    const pageSize = 2;
+    const pageSize = 5;
+    // Keep a real second page at a contract-supported page size.
+    const template = await prisma.ticket.findFirstOrThrow({ where: { requesterId: jenniferId } });
+    for (let i = 0; i < 6; i++) await prisma.ticket.create({ data: {
+      ticketNumber: `PAGE-${Date.now()}-${i}`, summary: "Pagination fixture", description: "Owned page boundary",
+      requesterId: jenniferId, categoryId: template.categoryId, relatedSystemId: template.relatedSystemId,
+    } });
     // Page 1
     const resPage1 = await request(app)
       .get(`/api/tickets?page=1&pageSize=${pageSize}`)

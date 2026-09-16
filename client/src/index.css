@@ -85,21 +85,6 @@ body {
   font-size: 0.75rem;
 }
 
-.btn-switch-requester {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  color: #ffffff;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-switch-requester:hover {
-  background-color: #ffffff;
-  color: var(--primary-green);
-}
 
 /* Zen Cards & Containers */
 .zen-card {
@@ -339,5 +324,13 @@ body {
   border-color: var(--primary-green);
   color: #ffffff;
   font-weight: 600;
+}
+/* The same Requester destinations remain keyboard-accessible on small screens. */
+.requester-menu-toggle { display: none; }
+@media (max-width: 767px) {
+  .requester-menu-toggle { display: inline-block; min-height: 44px; }
+  .requester-navigation { display: none !important; width: 100%; }
+  .requester-navigation.is-open { display: flex !important; flex-wrap: wrap; }
+  .requester-navigation button { min-height: 44px; }
 }
 

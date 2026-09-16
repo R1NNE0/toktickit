@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Ticket,
   Attachment,
   getTicketDetail,
   downloadAttachment,
   softRemoveAttachment,
+  uploadAttachment,
 } from "../api.js";
 
 interface TicketDetailProps {
@@ -16,6 +17,10 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
   ticketId,
   onBack,
 }) => {
+  const generation = useRef(0);
+  const transfer = useRef(new AbortController());
+  const [uploading, setUploading] = useState(false);
+  useEffect(() => { transfer.current = new AbortController(); return () => { transfer.current.abort(); generation.current++; }; }, [ticketId]);
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,19 +37,20 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   const fetchTicket = useCallback(async () => {
+    const version = ++generation.current;
     setLoading(true);
     setError(null);
     try {
       const data = await getTicketDetail(ticketId);
-      setTicket(data);
+      if (version === generation.current) setTicket(data);
     } catch (err: unknown) {
       const msg =
         err instanceof Error
           ? err.message
           : "Failed to load ticket details";
-      setError(msg);
+      if (version === generation.current) setError(msg);
     } finally {
-      setLoading(false);
+      if (version === generation.current) setLoading(false);
     }
   }, [ticketId]);
 
@@ -57,7 +63,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
     setDownloadingId(attachment.id);
     setDownloadError(null);
     try {
-      await downloadAttachment(attachment.id, attachment.fileName);
+      await downloadAttachment(attachment.id, attachment.fileName, transfer.current.signal);
     } catch (err: unknown) {
       const msg =
         err instanceof Error
@@ -88,8 +94,8 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
   const handleConfirmRemoval = async () => {
     if (!modalAttachment) return;
     const trimmedReason = removalReason.trim();
-    if (!trimmedReason) {
-      setRemovalError("A removal reason is mandatory and cannot be blank.");
+    if (!trimmedReason || [...trimmedReason].length > 1000) {
+      setRemovalError(!trimmedReason ? "A removal reason is mandatory and cannot be blank." : "Removal reason must be at most 1000 characters.");
       return;
     }
 
@@ -129,6 +135,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
       const msg =
         err instanceof Error ? err.message : "Failed to remove attachment";
       setRemovalError(msg);
+      void fetchTicket();
     } finally {
       setIsRemoving(false);
     }
@@ -258,7 +265,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
 
         <div className="d-flex align-items-center gap-2">
           <span className={getPriorityBadgeClass(ticket.requestedPriority)}>
-            {ticket.requestedPriority} Priority
+            {ticket.requestedPriority} Requested Priority
           </span>
           <span className={getStatusBadgeClass(ticket.currentStatus)}>
             {ticket.currentStatus.replace("_", " ")}
@@ -288,7 +295,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
           className="alert alert-danger alert-dismissible fade show mb-4"
           role="alert"
         >
-          <strong>Download Error:</strong> {downloadError}
+          <strong>Attachment Error:</strong> {downloadError}
           <button
             type="button"
             className="btn-close"
@@ -316,6 +323,10 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
 
         {/* Ticket Metadata Grid */}
         <div className="row g-3 mb-4">
+          <div className="col-12 col-md-4"><div className="small text-muted">Requested Priority</div>
+            <div className="p-2 border rounded" style={{ backgroundColor: "var(--readonly-bg)" }}>{ticket.requestedPriority}</div></div>
+          <div className="col-12 col-md-4"><div className="small text-muted">IT Priority</div>
+            <div className="p-2 border rounded" style={{ backgroundColor: "var(--readonly-bg)" }}>{ticket.itPriority}</div></div>
           <div className="col-12 col-md-4">
             <div className="small text-muted">Category</div>
             <div className="fw-semibold">
@@ -407,6 +418,25 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
           </span>
         </div>
 
+        <label className="form-label">Add Attachment
+          <input type="file" className="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf" disabled={uploading || activeAttachments.length >= 5}
+            onChange={async e => {
+              const file = e.target.files?.[0]; e.target.value = "";
+              if (!file) return;
+              setDownloadError(null);
+              if (!/\.(jpe?g|png|webp|pdf)$/i.test(file.name) || file.size === 0 || file.size > 5242880) {
+                setDownloadError("Choose JPG, PNG, WEBP or PDF, nonempty and at most 5 MB."); return;
+              }
+              setUploading(true);
+              try {
+                await uploadAttachment(ticketId, file, transfer.current.signal);
+                if (!transfer.current.signal.aborted) { setActionNotice("Attachment uploaded."); await fetchTicket(); }
+              } catch {
+                if (!transfer.current.signal.aborted) { setDownloadError("Upload could not be confirmed. Inspect refreshed attachments before retrying."); await fetchTicket(); }
+              } finally { setUploading(false); }
+            }} />
+        </label>
+        <p className="small text-muted">{uploading ? "Uploading..." : "Up to five active files, 5 MB each. JPG, JPEG, PNG, WEBP or PDF."}</p>
         {/* Empty attachments notice */}
         {(!ticket.attachments || ticket.attachments.length === 0) && (
           <div className="text-muted text-center py-4 border rounded bg-light">

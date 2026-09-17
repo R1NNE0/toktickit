@@ -5,6 +5,9 @@ import fs from "fs";
 import crypto from "crypto";
 import multer from "multer";
 import { getPrisma } from "./prisma.js";
+import { positiveId, bodyFields, requesterQuery } from "./middleware/requesterInput.js";
+import { validAttachment, attachmentSelect, ticketDetailInclude } from "./attachments.js";
+import { HttpError, asyncRoute } from "./auth/http.js";
 import { requireRequester } from "./middleware/requesterAuth.js";
 import { createAuth, authErrorHandler, requireNormal } from "./auth/http.js";
 import { generateTicketNumber } from "./utils/ticketNumber.js";
@@ -140,107 +143,12 @@ app.get("/api/related-systems", async (_req: Request, res: Response) => {
 app.get(
   "/api/tickets",
   requireRequester,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const requesterId = req.requesterId!;
-      const {
-        search,
-        categoryId,
-        requestedPriority,
-        priority,
-        currentStatus,
-        status,
-        sortBy = "createdAt",
-        sortOrder = "desc",
-        page = "1",
-        pageSize,
-        limit,
-      } = req.query;
-
-      // 1. Pagination parameters validation
-      const parsedPage = parseInt(String(page), 10);
-      if (isNaN(parsedPage) || parsedPage < 1) {
-        res.status(400).json({ error: "Page must be a positive integer" });
-        return;
-      }
-
-      const rawLimit = pageSize || limit || "8";
-      const parsedLimit = parseInt(String(rawLimit), 10);
-      if (isNaN(parsedLimit) || parsedLimit < 1) {
-        res
-          .status(400)
-          .json({ error: "Page size/limit must be a positive integer" });
-        return;
-      }
-
-      // 2. Status filter validation
-      const validStatuses = [
-        "NEW",
-        "OPEN",
-        "IN_PROGRESS",
-        "RESOLVED",
-        "CLOSED",
-      ];
-      const rawStatus = currentStatus || status;
-      let filterStatus: any = undefined;
-      if (rawStatus && typeof rawStatus === "string" && rawStatus.trim()) {
-        const normalized = rawStatus.trim().toUpperCase();
-        if (!validStatuses.includes(normalized)) {
-          res.status(400).json({
-            error: `Invalid status parameter. Allowed values: ${validStatuses.join(
-              ", "
-            )}`,
-          });
-          return;
-        }
-        filterStatus = normalized;
-      }
-
-      // 3. Priority filter validation
-      const validPriorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
-      const rawPriority = requestedPriority || priority;
-      let filterPriority: any = undefined;
-      if (rawPriority && typeof rawPriority === "string" && rawPriority.trim()) {
-        const normalized = rawPriority.trim().toUpperCase();
-        if (!validPriorities.includes(normalized)) {
-          res.status(400).json({
-            error: `Invalid priority parameter. Allowed values: ${validPriorities.join(
-              ", "
-            )}`,
-          });
-          return;
-        }
-        filterPriority = normalized;
-      }
-
-      // 4. Category filter validation
-      let filterCategoryId: number | undefined;
-      if (categoryId) {
-        const parsedCat = parseInt(String(categoryId), 10);
-        if (isNaN(parsedCat) || parsedCat <= 0) {
-          res.status(400).json({ error: "Invalid category ID" });
-          return;
-        }
-        filterCategoryId = parsedCat;
-      }
-
-      // 5. Sort parameters
-      const allowedSortFields = [
-        "createdAt",
-        "ticketNumber",
-        "requestedPriority",
-        "currentStatus",
-        "updatedAt",
-      ];
-      const sortField =
-        typeof sortBy === "string" && allowedSortFields.includes(sortBy)
-          ? sortBy
-          : "createdAt";
-
-      const sortDirection =
-        typeof sortOrder === "string" && sortOrder.toLowerCase() === "asc"
-          ? "asc"
-          : "desc";
+      const query = requesterQuery(req.query);
+      const { search, categoryId: filterCategoryId, status: filterStatus, priority: filterPriority,
+        sortBy: sortField, sortOrder: sortDirection, page: parsedPage, pageSize: parsedLimit } = query;
 
       // 6. Prisma Where condition (enforces requester isolation)
       const where: any = {
@@ -333,10 +241,7 @@ app.get(
           totalPages,
         },
       });
-    } catch (err) {
-      console.error("GET /api/tickets error:", err);
-      res.status(500).json({ error: "Failed to retrieve tickets" });
-    }
+    } catch (err) { next(err); }
   }
 );
 
@@ -346,9 +251,10 @@ app.get(
 app.post(
   "/api/tickets",
   requireRequester,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const requesterId = req.requesterId!;
+      bodyFields(req.body, ["summary", "description", "categoryId", "relatedSystemId", "requestedPriority", "idempotencyKey"]);
       const {
         summary,
         description,
@@ -391,10 +297,8 @@ app.post(
       }
 
       const validPriorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
-      const priority = requestedPriority
-        ? String(requestedPriority).toUpperCase()
-        : "MEDIUM";
-      if (requestedPriority && !validPriorities.includes(priority)) {
+      const priority = requestedPriority === undefined ? "MEDIUM" : requestedPriority;
+      if (typeof priority !== "string" || !validPriorities.includes(priority)) {
         errors.push({
           field: "requestedPriority",
           message:
@@ -403,10 +307,15 @@ app.post(
       }
 
       if (errors.length > 0) {
-        res.status(400).json({ error: "Validation failed", details: errors });
+        res.status(400).json({ error: "Validation failed", code: "VALIDATION_ERROR", details: errors });
         return;
       }
 
+      positiveId(categoryId, "category");
+      positiveId(relatedSystemId, "related system");
+      if ([...trimmedSummary].length > 200 || [...trimmedDescription].length > 10000
+        || (idempotencyKey !== undefined && (typeof idempotencyKey !== "string" || !idempotencyKey.trim() || [...idempotencyKey.trim()].length > 128)))
+        throw new HttpError(400, "VALIDATION_ERROR", "Ticket fields exceed the allowed limits.");
       const prisma = getPrisma();
 
       // 2. Foreign key and active state validation
@@ -416,7 +325,7 @@ app.post(
       if (!category || !category.isActive) {
         res
           .status(400)
-          .json({ error: "Selected Category does not exist or is inactive" });
+          .json({ error: "Selected Category does not exist or is inactive", code: "VALIDATION_ERROR" });
         return;
       }
 
@@ -425,7 +334,7 @@ app.post(
       });
       if (!relatedSystem || !relatedSystem.isActive) {
         res.status(400).json({
-          error: "Selected Related System does not exist or is inactive",
+          error: "Selected Related System does not exist or is inactive", code: "VALIDATION_ERROR",
         });
         return;
       }
@@ -442,18 +351,12 @@ app.post(
             requesterId,
             idempotencyKey: trimmedKey,
           },
-          include: {
-            category: { select: { id: true, name: true } },
-            relatedSystem: { select: { id: true, name: true } },
-            requester: {
-              select: { id: true, name: true, email: true },
-            },
-          },
+          include: ticketDetailInclude,
         });
 
         if (existing) {
           // Idempotent return of the already created ticket
-          res.status(200).json(existing);
+          res.status(200).json({ ...existing, attachmentCount: existing.attachments.filter(a => !a.isRemoved).length });
           return;
         }
       }
@@ -468,26 +371,26 @@ app.post(
           summary: trimmedSummary,
           description: trimmedDescription,
           requestedPriority: priority as any,
-          itPriority: "MEDIUM",
+          itPriority: priority as any,
           currentStatus: "NEW",
           requesterId,
           categoryId: category.id,
           relatedSystemId: relatedSystem.id,
           idempotencyKey: trimmedKey,
         },
-        include: {
-          category: { select: { id: true, name: true } },
-          relatedSystem: { select: { id: true, name: true } },
-          requester: {
-            select: { id: true, name: true, email: true },
-          },
-        },
+        include: ticketDetailInclude,
       });
 
-      res.status(201).json(newTicket);
+      res.status(201).json({ ...newTicket, attachmentCount: 0 });
     } catch (err) {
-      console.error("POST /api/tickets error:", err);
-      res.status(500).json({ error: "Failed to create ticket" });
+      // The existing requester/key constraint is the atomic arbiter of simultaneous retries.
+      if ((err as { code?: string }).code === "P2002" && typeof req.body?.idempotencyKey === "string") {
+        try {
+          const existing = await getPrisma().ticket.findFirst({ where: { requesterId: req.requesterId!, idempotencyKey: req.body.idempotencyKey.trim() }, include: ticketDetailInclude });
+          if (existing) { res.status(200).json({ ...existing, attachmentCount: existing.attachments.filter(a => !a.isRemoved).length }); return; }
+        } catch (lookupError) { next(lookupError); return; }
+      }
+      next(err);
     }
   }
 );
@@ -498,106 +401,41 @@ app.post(
 app.post(
   "/api/tickets/:id/attachments",
   requireRequester,
+  asyncRoute(async (req, _res, next) => {
+    const id = positiveId(req.params.id, "ticket");
+    const ticket = await getPrisma().ticket.findFirst({ where: { id, requesterId: req.requesterId! }, select: { id: true } });
+    if (!ticket) throw new HttpError(404, "NOT_FOUND", "Ticket not found");
+    next();
+  }),
   (req: Request, res: Response, next: NextFunction) => {
     upload.single("file")(req, res, (err: any) => {
-      if (err) {
-        if (err.code === "LIMIT_FILE_SIZE") {
-          res
-            .status(413)
-            .json({ error: "File size exceeds maximum allowed limit of 5 MB" });
-          return;
-        }
-        if (err.message === "UNSUPPORTED_FILE_TYPE") {
-          res.status(400).json({
-            error:
-              "Unsupported file type. Allowed formats: JPG, JPEG, PNG, WEBP, PDF",
-          });
-          return;
-        }
-        res.status(400).json({ error: err.message || "File upload failed" });
-        return;
-      }
-      next();
+      if (!err) { next(); return; }
+      if (err.code === "LIMIT_FILE_SIZE") next(new HttpError(413, "PAYLOAD_TOO_LARGE", "File size exceeds maximum allowed limit of 5 MB"));
+      else next(new HttpError(400, err.message === "UNSUPPORTED_FILE_TYPE" ? "UNSUPPORTED_FILE_TYPE" : "VALIDATION_ERROR", "Unsupported file type or invalid upload. Allowed formats: JPG, JPEG, PNG, WEBP, PDF"));
     });
   },
-  async (req: Request, res: Response): Promise<void> => {
+  asyncRoute(async (req, res) => {
+    let recorded = false;
     try {
-      const requesterId = req.requesterId!;
-      const ticketId = parseInt(req.params.id, 10);
-
-      if (isNaN(ticketId) || ticketId <= 0 || ticketId > MAX_INT) {
-        res.status(400).json({ error: "Invalid ticket ID" });
-        return;
-      }
-
-      if (!req.file) {
-        res.status(400).json({ error: "No file attached in upload request" });
-        return;
-      }
-
-      const prisma = getPrisma();
-
-      // Check ticket exists
-      const ticket = await prisma.ticket.findUnique({
-        where: { id: ticketId },
+      bodyFields(req.body, []);
+      if (!req.file) throw new HttpError(400, "VALIDATION_ERROR", "No file attached in upload request");
+      if (!await validAttachment(req.file)) throw new HttpError(400, "UNSUPPORTED_FILE_TYPE", "Unsupported file type or signature.");
+      const file = req.file, ticketId = positiveId(req.params.id, "ticket");
+      const attachment = await getPrisma().$transaction(async tx => {
+        // Serialize count + insert for this ticket, including concurrent fifth/sixth uploads.
+        const rows = await tx.$queryRaw<{ id: number }[]>`SELECT id FROM "Ticket" WHERE id = ${ticketId} AND "requesterId" = ${req.requesterId!} FOR UPDATE`;
+        if (!rows.length) throw new HttpError(404, "NOT_FOUND", "Ticket not found");
+        if (await tx.attachment.count({ where: { ticketId, isRemoved: false } }) >= 5)
+          throw new HttpError(400, "ATTACHMENT_LIMIT", "Attachment limit reached: A maximum of 5 active attachments is allowed per ticket");
+        return tx.attachment.create({ data: { ticketId, fileName: file.originalname, storedPath: file.path,
+          fileSize: file.size, mimeType: file.mimetype }, select: attachmentSelect });
       });
-
-      if (!ticket) {
-        res.status(404).json({ error: "Ticket not found" });
-        return;
-      }
-
-      // Check ownership
-      if (ticket.requesterId !== requesterId) {
-        res.status(403).json({
-          error: "Forbidden: You cannot attach files to another requester's ticket",
-        });
-        return;
-      }
-
-      // Check active attachments limit (max 5 active attachments)
-      const activeCount = await prisma.attachment.count({
-        where: {
-          ticketId,
-          isRemoved: false,
-        },
-      });
-
-      if (activeCount >= 5) {
-        res.status(400).json({
-          error:
-            "Attachment limit reached: A maximum of 5 active attachments is allowed per ticket",
-        });
-        return;
-      }
-
-      // Record attachment in database
-      const attachment = await prisma.attachment.create({
-        data: {
-          ticketId,
-          fileName: req.file.originalname,
-          storedPath: req.file.path,
-          fileSize: req.file.size,
-          mimeType: req.file.mimetype,
-          isRemoved: false,
-        },
-        select: {
-          id: true,
-          ticketId: true,
-          fileName: true,
-          fileSize: true,
-          mimeType: true,
-          isRemoved: true,
-          createdAt: true,
-        },
-      });
-
+      recorded = true;
       res.status(201).json(attachment);
-    } catch (err) {
-      console.error("POST /api/tickets/:id/attachments error:", err);
-      res.status(500).json({ error: "Failed to upload attachment" });
+    } finally {
+      if (req.file && !recorded) await fs.promises.unlink(req.file.path);
     }
-  }
+  })
 );
 
 // ---------------------------------------------------------------------------
@@ -606,10 +444,10 @@ app.post(
 app.get(
   "/api/tickets/:id",
   requireRequester,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const requesterId = req.requesterId!;
-      const ticketId = parseInt(req.params.id, 10);
+      const ticketId = positiveId(req.params.id, "ticket");
 
       if (isNaN(ticketId) || ticketId <= 0 || ticketId > MAX_INT) {
         res.status(400).json({ error: "Invalid ticket ID" });
@@ -617,8 +455,8 @@ app.get(
       }
 
       const prisma = getPrisma();
-      const ticket = await prisma.ticket.findUnique({
-        where: { id: ticketId },
+      const ticket = await prisma.ticket.findFirst({
+        where: { id: ticketId, requesterId },
         include: {
           category: {
             select: { id: true, name: true },
@@ -641,29 +479,18 @@ app.get(
               removalReason: true,
               createdAt: true,
             },
-            orderBy: { createdAt: "asc" },
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
           },
         },
       });
 
       if (!ticket) {
-        res.status(404).json({ error: "Ticket not found" });
+        res.status(404).json({ error: "Ticket not found", code: "NOT_FOUND" });
         return;
       }
 
-      // Strict data isolation check: ticket must belong to active requester
-      if (ticket.requesterId !== requesterId) {
-        res.status(403).json({
-          error: "Forbidden: You do not have permission to view this ticket",
-        });
-        return;
-      }
-
-      res.json(ticket);
-    } catch (err) {
-      console.error("GET /api/tickets/:id error:", err);
-      res.status(500).json({ error: "Failed to retrieve ticket details" });
-    }
+      res.json({ ...ticket, attachmentCount: ticket.attachments.filter(a => !a.isRemoved).length });
+    } catch (err) { next(err); }
   }
 );
 
@@ -673,10 +500,10 @@ app.get(
 app.get(
   "/api/attachments/:id/download",
   requireRequester,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const requesterId = req.requesterId!;
-      const attachmentId = parseInt(req.params.id, 10);
+      const attachmentId = positiveId(req.params.id, "attachment");
 
       if (isNaN(attachmentId) || attachmentId <= 0 || attachmentId > MAX_INT) {
         res.status(400).json({ error: "Invalid attachment ID" });
@@ -684,8 +511,8 @@ app.get(
       }
 
       const prisma = getPrisma();
-      const attachment = await prisma.attachment.findUnique({
-        where: { id: attachmentId },
+      const attachment = await prisma.attachment.findFirst({
+        where: { id: attachmentId, ticket: { requesterId } },
         include: {
           ticket: {
             select: {
@@ -697,22 +524,14 @@ app.get(
       });
 
       if (!attachment) {
-        res.status(404).json({ error: "Attachment not found" });
-        return;
-      }
-
-      // Check parent ticket ownership
-      if (attachment.ticket.requesterId !== requesterId) {
-        res.status(403).json({
-          error:
-            "Forbidden: You do not have permission to access this attachment",
-        });
+        res.status(404).json({ error: "Attachment not found", code: "NOT_FOUND" });
         return;
       }
 
       // Check if attachment has been soft-removed (BR-08 / AC-08)
       if (attachment.isRemoved) {
         res.status(403).json({
+          code: "ATTACHMENT_REMOVED",
           error:
             "Attachment has been removed and is no longer available for download",
         });
@@ -725,7 +544,7 @@ app.get(
         : path.resolve(process.cwd(), attachment.storedPath);
 
       if (!fs.existsSync(resolvedPath)) {
-        res.status(404).json({ error: "Attachment file not found on server" });
+        res.status(404).json({ error: "Attachment file not found on server", code: "FILE_UNAVAILABLE" });
         return;
       }
 
@@ -739,10 +558,7 @@ app.get(
         `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedName}`
       );
       res.download(resolvedPath, attachment.fileName);
-    } catch (err) {
-      console.error("GET /api/attachments/:id/download error:", err);
-      res.status(500).json({ error: "Failed to download attachment" });
-    }
+    } catch (err) { next(err); }
   }
 );
 
@@ -752,27 +568,19 @@ app.get(
 app.delete(
   "/api/attachments/:id",
   requireRequester,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const requesterId = req.requesterId!;
-      const attachmentId = parseInt(req.params.id, 10);
+      const attachmentId = positiveId(req.params.id, "attachment");
 
       if (isNaN(attachmentId) || attachmentId <= 0 || attachmentId > MAX_INT) {
         res.status(400).json({ error: "Invalid attachment ID" });
         return;
       }
 
-      const { reason } = req.body || {};
-      if (!reason || typeof reason !== "string" || !reason.trim()) {
-        res.status(400).json({
-          error: "Removal reason is required and cannot be blank",
-        });
-        return;
-      }
-
       const prisma = getPrisma();
-      const attachment = await prisma.attachment.findUnique({
-        where: { id: attachmentId },
+      const attachment = await prisma.attachment.findFirst({
+        where: { id: attachmentId, ticket: { requesterId } },
         include: {
           ticket: {
             select: {
@@ -784,35 +592,31 @@ app.delete(
       });
 
       if (!attachment) {
-        res.status(404).json({ error: "Attachment not found" });
+        res.status(404).json({ error: "Attachment not found", code: "NOT_FOUND" });
         return;
       }
 
-      // Check ownership
-      if (attachment.ticket.requesterId !== requesterId) {
-        res.status(403).json({
-          error:
-            "Forbidden: You do not have permission to remove this attachment",
-        });
-        return;
-      }
+      bodyFields(req.body, ["reason"]);
+      const { reason } = req.body || {};
+      if (typeof reason !== "string" || !reason.trim() || [...reason.trim()].length > 1000)
+        throw new HttpError(400, "VALIDATION_ERROR", "Removal reason is required and must be 1–1000 characters.");
 
       // Concurrency & Audit Guard: Prevent double-removal from overwriting existing audit record
       if (attachment.isRemoved) {
         res.status(409).json({
-          error: "Conflict: This attachment has already been removed",
+          error: "Conflict: This attachment has already been removed", code: "ALREADY_REMOVED",
         });
         return;
       }
 
       // Soft removal: do NOT delete from filesystem
-      const updated = await prisma.attachment.update({
+      const removed = await prisma.attachment.updateMany({
+        where: { id: attachmentId, isRemoved: false },
+        data: { isRemoved: true, removedAt: new Date(), removalReason: reason.trim() },
+      });
+      if (removed.count !== 1) throw new HttpError(409, "ALREADY_REMOVED", "Conflict: This attachment has already been removed");
+      const updated = await prisma.attachment.findUniqueOrThrow({
         where: { id: attachmentId },
-        data: {
-          isRemoved: true,
-          removedAt: new Date(),
-          removalReason: reason.trim(),
-        },
         select: {
           id: true,
           fileName: true,
@@ -823,10 +627,7 @@ app.delete(
       });
 
       res.status(200).json(updated);
-    } catch (err) {
-      console.error("DELETE /api/attachments/:id error:", err);
-      res.status(500).json({ error: "Failed to remove attachment" });
-    }
+    } catch (err) { next(err); }
   }
 );
 

@@ -282,8 +282,8 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
       .get(`/api/tickets/${createdTicketId}`)
       .set(await requesterHeaders(michaelId));
 
-    expect(res.status).toBe(403);
-    expect(res.body.error).toMatch(/Forbidden|permission/i);
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe("NOT_FOUND");
   });
 
   it("Step 7b: rejects cross-requester download when Requester B attempts to download attachment", async () => {
@@ -291,8 +291,8 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
       .get(`/api/attachments/${attachmentId}/download`)
       .set(await requesterHeaders(michaelId));
 
-    expect(res.status).toBe(403);
-    expect(res.body.error).toMatch(/Forbidden|permission/i);
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe("NOT_FOUND");
   });
 
   it("Step 7c: rejects cross-requester removal when Requester B attempts to delete attachment", async () => {
@@ -301,8 +301,8 @@ describe("Lab 2 (Issue #7) - Complete Requester End-to-End Integration Flow (E2E
       .set(await requesterHeaders(michaelId))
       .send({ reason: "Malicious deletion attempt from another requester" });
 
-    expect(res.status).toBe(403);
-    expect(res.body.error).toMatch(/Forbidden|permission/i);
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe("NOT_FOUND");
   });
 
   it("Step 7d: ensures Requester B's My Tickets list excludes Requester A's tickets (Data Isolation)", async () => {

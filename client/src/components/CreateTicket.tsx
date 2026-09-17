@@ -1,5 +1,7 @@
+import { useAuth } from "../context/AuthContext.js";
 import React, { useState, useEffect, useRef } from "react";
 import {
+  getTicketDetail,
   getCategories,
   getRelatedSystems,
   createTicket,
@@ -12,6 +14,7 @@ import {
 
 interface CreateTicketProps {
   onSuccessNavigate?: () => void;
+  onViewTicket?: (id: number) => void;
   onDirtyChange?: (isDirty: boolean) => void;
 }
 
@@ -21,8 +24,14 @@ const MAX_ATTACHMENTS = 5;
 
 export const CreateTicket: React.FC<CreateTicketProps> = ({
   onSuccessNavigate,
+  onViewTicket,
   onDirtyChange,
 }) => {
+  const { user } = useAuth();
+  const active = useRef(true);
+  const uploads = useRef(new AbortController());
+  useEffect(() => { active.current = true; uploads.current = new AbortController(); return () => { active.current = false; uploads.current.abort(); }; }, []);
+  const [failedFiles, setFailedFiles] = useState<File[]>([]);
   // Reference data
   const [categories, setCategories] = useState<Category[]>([]);
   const [relatedSystems, setRelatedSystems] = useState<RelatedSystem[]>([]);
@@ -161,6 +170,7 @@ export const CreateTicket: React.FC<CreateTicketProps> = ({
     setSummary("");
     setDescription("");
     setFiles([]);
+    setFailedFiles([]);
     setFieldErrors({});
     setSubmitError(null);
     setCreatedTicket(null);
@@ -181,6 +191,8 @@ export const CreateTicket: React.FC<CreateTicketProps> = ({
     const trimmedSummary = summary.trim();
     const trimmedDesc = description.trim();
 
+    if ([...trimmedSummary].length > 200) errors.summary = "Summary must be at most 200 characters.";
+    if ([...trimmedDesc].length > 10000) errors.description = "Description must be at most 10000 characters.";
     if (!trimmedSummary) {
       errors.summary = "Summary is required and cannot be blank.";
     }
@@ -213,17 +225,15 @@ export const CreateTicket: React.FC<CreateTicketProps> = ({
         idempotencyKey,
       });
 
-      // 2. Upload attachments sequentially if any
-      if (files.length > 0) {
-        for (const file of files) {
-          try {
-            await uploadAttachment(ticket.id, file);
-          } catch (uploadErr) {
-            console.warn(`Failed to upload ${file.name}:`, uploadErr);
-          }
-        }
+      if (!active.current) return;
+      const failed: File[] = [];
+      for (const file of files) {
+        if (!active.current) return;
+        try { await uploadAttachment(ticket.id, file, uploads.current.signal); }
+        catch { failed.push(file); }
       }
-
+      if (!active.current) return;
+      setFailedFiles(failed);
       setCreatedTicket(ticket);
     } catch (err: unknown) {
       console.error("Failed to submit ticket:", err);
@@ -233,6 +243,29 @@ export const CreateTicket: React.FC<CreateTicketProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const retryUploads = async () => {
+    if (!createdTicket || isSubmitting) return;
+    setIsSubmitting(true); setSubmitError(null);
+    try {
+      const current = await getTicketDetail(createdTicket.id);
+      if (!active.current) return;
+      const remaining: File[] = [];
+      for (const file of failedFiles) {
+        if (!active.current) return;
+        const matching = current.attachments?.some(a => !a.isRemoved && a.fileName === file.name && a.fileSize === file.size && a.mimeType === file.type);
+        if (matching) {
+          remaining.push(file);
+          setSubmitError("A matching attachment already exists. Inspect Ticket Detail before uploading it again.");
+          continue;
+        }
+        try { await uploadAttachment(createdTicket.id, file, uploads.current.signal); }
+        catch { remaining.push(file); }
+      }
+      if (active.current) setFailedFiles(remaining);
+    } catch { if (active.current) setSubmitError("Unable to check current attachments. Retry when connected."); }
+    finally { if (active.current) setIsSubmitting(false); }
   };
 
   // ---------------------------------------------------------------------------
@@ -255,7 +288,7 @@ export const CreateTicket: React.FC<CreateTicketProps> = ({
         </div>
 
         <h2 className="h4 fw-bold mb-2" style={{ color: "var(--text-primary)" }}>
-          Ticket Created Successfully!
+          {failedFiles.length ? "Ticket created; some files were not uploaded." : "Ticket Created Successfully!"}
         </h2>
         <p className="text-muted small mb-4">
           Your support request has been logged and assigned an official tracking number.
@@ -304,16 +337,25 @@ export const CreateTicket: React.FC<CreateTicketProps> = ({
             </div>
             {files.length > 0 && (
               <div>
-                <strong>Attachments:</strong> {files.length} file(s)
+                <strong>Attachments saved:</strong> {files.length - failedFiles.length} file(s)
               </div>
             )}
           </div>
         </div>
 
+        {failedFiles.length > 0 && <div className="alert alert-warning" role="alert">
+          <ul>{failedFiles.map((file, i) => <li key={i}>{file.name}</li>)}</ul>
+          {submitError && <p>{submitError}</p>}
+          <button className="btn btn-outline-secondary" disabled={isSubmitting} onClick={() => void retryUploads()}>
+            {isSubmitting ? "Retrying uploads..." : "Retry Failed Uploads"}
+          </button>
+        </div>}
         <div className="d-flex justify-content-center gap-3 flex-wrap">
+          {onViewTicket && <button type="button" className="btn btn-zen-primary" onClick={() => onViewTicket(createdTicket.id)}>View Ticket Detail</button>}
           <button
             type="button"
             className="btn btn-outline-secondary px-4"
+            disabled={isSubmitting}
             onClick={handleResetForm}
           >
             ➕ Create Another Ticket
@@ -376,6 +418,8 @@ export const CreateTicket: React.FC<CreateTicketProps> = ({
           </div>
         ) : (
           <form onSubmit={handleSubmit} noValidate>
+            <div className="bg-light border rounded p-3 mb-3"><p>Requester: {user?.name} ({user?.email})</p>
+              <p>Ticket Number / Date: assigned by the server after save</p><p className="mb-0">IT Priority (read-only): {requestedPriority}</p></div>
             <div className="row g-3 mb-3">
               {/* Category Dropdown */}
               <div className="col-md-6 text-start">
@@ -553,6 +597,7 @@ export const CreateTicket: React.FC<CreateTicketProps> = ({
 
               <input
                 type="file"
+                aria-label="File Attachments"
                 ref={fileInputRef}
                 className="d-none"
                 multiple

@@ -13,11 +13,12 @@ describe("UI-01/02 session screen integration (Issue 2 portion)", () => {
   beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
   it("ignores stored identity and gates mandatory change until successful rotation", async () => {
     localStorage.setItem("toktickit_selected_requester_id", "999");
-    const directory = vi.spyOn(api, "getActiveRequesters");
+    const directory = vi.spyOn(globalThis, "fetch");
     vi.mocked(auth.authRequest).mockImplementation(async path => ({ user: { ...user, mustChangePassword: path !== "change-password" } }));
     render(<App />);
     expect(await screen.findByRole("heading", { name: "Change password" })).toBeInTheDocument();
     expect(directory).not.toHaveBeenCalled();
+    expect(localStorage.getItem("toktickit_selected_requester_id")).toBeNull();
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Tickets" })).not.toBeInTheDocument();
@@ -57,5 +58,36 @@ describe("UI-01/02 session screen integration (Issue 2 portion)", () => {
     act(() => window.dispatchEvent(new Event("toktickit:session-expired")));
     await screen.findByRole("heading", { name: "Sign in" });
     expect(screen.queryByText("Signed in as IT Staff.")).not.toBeInTheDocument();
+  });
+});
+
+describe("UI-03/11 authenticated Requester shell replaces the development selector", () => {
+  beforeEach(() => { vi.restoreAllMocks(); vi.clearAllMocks(); localStorage.clear(); });
+  it("uses session identity, clears private drafts on logout and keeps mobile navigation accessible", async () => {
+    const requester = { ...user, role: "REQUESTER" as const, mustChangePassword: false };
+    vi.mocked(auth.authRequest).mockResolvedValue({ user: requester });
+    vi.spyOn(api, "getCategories").mockResolvedValue([{ id: 1, name: "Hardware" }]);
+    vi.spyOn(api, "getRelatedSystems").mockResolvedValue([{ id: 10, name: "Email" }]);
+    vi.spyOn(api, "getTickets").mockResolvedValue({ data: [], pagination: { page: 1, pageSize: 10, totalItems: 0, totalPages: 1 } });
+    localStorage.setItem("toktickit_selected_requester_id", "999");
+    render(<App />);
+    await screen.findByRole("heading", { name: "Welcome, Session User" });
+    expect(localStorage.getItem("toktickit_selected_requester_id")).toBeNull();
+    expect(screen.queryByText(/Select Development Requester|Switch Requester|Change Requester/i)).not.toBeInTheDocument();
+    const menu = screen.getByRole("button", { name: "Menu" });
+    await userEvent.click(menu); expect(menu).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Create Ticket" }));
+    expect(menu).toHaveAttribute("aria-expanded", "false");
+    await screen.findByLabelText(/Summary/i);
+    await userEvent.type(screen.getByLabelText(/Summary/i), "Private unsaved draft");
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await screen.findByRole("heading", { name: "Sign in" });
+    expect(screen.queryByDisplayValue("Private unsaved draft")).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Email"), requester.email);
+    await userEvent.type(screen.getByLabelText("Password"), "Synthetic password only!");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await screen.findByRole("heading", { name: "Welcome, Session User" });
+    await userEvent.click(screen.getByRole("button", { name: "Create Ticket" }));
+    expect(await screen.findByLabelText(/Summary/i)).toHaveValue("");
   });
 });

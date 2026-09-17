@@ -91,7 +91,7 @@ describe("Lab 2 (Issue #6) - TicketDetail Component", () => {
     expect(screen.getByText("Corporate Laptop")).toBeInTheDocument();
     expect(screen.getByText(/Jennifer Anderson/i)).toBeInTheDocument();
     expect(screen.getAllByText(/IN PROGRESS/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/MEDIUM Priority/i)).toBeInTheDocument();
+    expect(screen.getByText(/MEDIUM Requested Priority/i)).toBeInTheDocument();
   });
 
   it("renders both active and soft-removed attachments with respective badges and reasons (UI-05 / AC-08)", async () => {
@@ -132,7 +132,7 @@ describe("Lab 2 (Issue #6) - TicketDetail Component", () => {
     });
     await userEvent.click(downloadBtn);
 
-    expect(downloadSpy).toHaveBeenCalledWith(5, "battery_report.pdf");
+    expect(downloadSpy).toHaveBeenCalledWith(5, "battery_report.pdf", expect.any(AbortSignal));
   });
 
   it("opens soft removal modal and validates non-empty reason before confirming (UI-06 / FR-10 / AC-08)", async () => {

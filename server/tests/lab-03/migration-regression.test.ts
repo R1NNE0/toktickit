@@ -24,7 +24,7 @@ async function legacy() {
   await db.category.create({ data: { name: "Hardware" } });
   await db.relatedSystem.create({ data: { name: "Email" } });
   const ticket = await db.ticket.create({ data: { ticketNumber: "LEGACY-1", summary: "Keep every field",
-    description: "Preserve history", requesterId: 2, categoryId: 1, relatedSystemId: 1, idempotencyKey: "legacy-key", currentStatus: "CLOSED" } });
+    description: "Preserve history", requesterId: 2, categoryId: 1, relatedSystemId: 1, idempotencyKey: "legacy-key", currentStatus: "CLOSED" }, select: { id: true } });
   const file = path.resolve(process.env.TEST_UPLOAD_ROOT!, randomUUID() + ".pdf");
   await mkdir(path.dirname(file), { recursive: true }); await writeFile(file, "%PDF-1.4 legacy bytes");
   await db.attachment.create({ data: { ticketId: ticket.id, fileName: "legacy.pdf", storedPath: file,
@@ -34,7 +34,9 @@ async function legacy() {
 async function snapshot(db: PrismaClient) {
   return {
     users: await db.$queryRawUnsafe('SELECT id,name,email,"isActive","createdAt","updatedAt" FROM "RequesterUser" ORDER BY id'),
-    tickets: await db.ticket.findMany({ orderBy: { id: "asc" } }),
+    // Compare every legacy column even before later additive columns exist.
+    tickets: await db.$queryRaw<Record<string, unknown>[]>`SELECT id,"ticketNumber",summary,description,"requestedPriority","itPriority","currentStatus",
+      "requesterId","categoryId","relatedSystemId","idempotencyKey","createdAt","updatedAt" FROM "Ticket" ORDER BY id`,
     attachments: await db.attachment.findMany({ orderBy: { id: "asc" } }),
   };
 }
@@ -122,6 +124,7 @@ describe("MIG-01/02/04 preserved migration and create-only seeds", () => {
     await migrateAuth(url, async values => { credentials.push(...values); });
     expect(await snapshot(db)).toEqual(before);
     expect(createHash("sha256").update(await readFile(file)).digest("hex")).toBe(digest);
+    expect(await db.ticket.findMany({ select: { ownerId: true } })).toEqual([{ ownerId: null }]);
     const users = await db.user.findMany({ orderBy: { id: "asc" } });
     expect(credentials).toHaveLength(3);
     for (const u of users) {

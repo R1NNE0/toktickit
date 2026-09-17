@@ -11,6 +11,7 @@ import { HttpError, asyncRoute } from "./auth/http.js";
 import { requireRequester } from "./middleware/requesterAuth.js";
 import { createAuth, authErrorHandler, requireNormal } from "./auth/http.js";
 import { generateTicketNumber } from "./utils/ticketNumber.js";
+import { staffQueue } from "./staffQueue.js";
 
 // The Express app is exported separately from app.listen() (see index.ts) so
 // Supertest can import `app` without opening a port. Do not merge these files.
@@ -35,6 +36,8 @@ app.use(["/api/tickets", "/api/attachments"], (req, res, next) => {
 
 // Max 32-bit signed integer boundary (PostgreSQL serial/int)
 const MAX_INT = 2147483647;
+
+app.get("/api/staff/tickets", asyncRoute(staffQueue));
 
 // Ensure upload directory exists
 const uploadDir = path.resolve(process.cwd(), process.env.TEST_UPLOAD_ROOT ?? "uploads/lab-02");

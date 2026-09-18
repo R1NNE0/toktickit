@@ -143,13 +143,9 @@ describe("API-12/13 Staff Queue and API-05/07 role gate", () => {
       expect(response.body.code).toBe(state === "restricted" ? "PASSWORD_CHANGE_REQUIRED" : "UNAUTHENTICATED");
     } finally { await db.user.delete({ where: { id: user.id } }); }
   });
-  it("returns safe database errors and exposes no workflow routes", async () => {
+  it("returns safe database errors", async () => {
     vi.spyOn(db, "$queryRaw").mockRejectedValueOnce(new Error("SQL password secret stack"));
     const response = await get().expect(500);
     expect(response.body).toEqual({ error: "Unable to complete the request.", code: "INTERNAL_ERROR" });
-    for (const [method, path] of [["post", "/api/staff/tickets/1/claim"], ["patch", "/api/staff/tickets/1/owner"],
-      ["patch", "/api/staff/tickets/1/priority"], ["patch", "/api/staff/tickets/1/status"],
-      ["get", "/api/staff/tickets/1"], ["get", "/api/staff/assignees"]] as const)
-      await request(app)[method](path).set(headers).send({}).expect(404);
   });
 });

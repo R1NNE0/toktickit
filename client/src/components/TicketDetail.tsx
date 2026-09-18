@@ -2,25 +2,63 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Ticket,
   Attachment,
+  PublicComment,
+  InternalNote,
+  Priority,
   getTicketDetail,
   downloadAttachment,
   softRemoveAttachment,
   uploadAttachment,
+  indicateResolution,
+  getPublicComments,
+  createPublicComment,
+  getInternalNotes,
+  updateTicketPriority,
 } from "../api.js";
+import { useAuth } from "../context/AuthContext.js";
 
 interface TicketDetailProps {
   ticketId: number;
   onBack: () => void;
 }
 
+const ACTIVE_RESOLUTION_STATUSES = [
+  "NEW",
+  "OPEN",
+  "IN_PROGRESS",
+  "WAITING_FOR_REQUESTER",
+  "REOPENED",
+];
+
+const PRIORITIES: Priority[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+
+function useOptionalAuth() {
+  try {
+    return useAuth();
+  } catch {
+    return { user: null };
+  }
+}
+
 export const TicketDetail: React.FC<TicketDetailProps> = ({
   ticketId,
   onBack,
 }) => {
+  const { user } = useOptionalAuth();
+  const isAdmin = user?.role === "ADMINISTRATOR";
+  const isRequester = user?.role === "REQUESTER" || !user;
+
   const generation = useRef(0);
   const transfer = useRef(new AbortController());
   const [uploading, setUploading] = useState(false);
-  useEffect(() => { transfer.current = new AbortController(); return () => { transfer.current.abort(); generation.current++; }; }, [ticketId]);
+  useEffect(() => {
+    transfer.current = new AbortController();
+    return () => {
+      transfer.current.abort();
+      generation.current++;
+    };
+  }, [ticketId]);
+
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,27 +74,91 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
   const [isRemoving, setIsRemoving] = useState<boolean>(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
+  // Resolution indication state
+  const [showResolutionModal, setShowResolutionModal] = useState(false);
+  const [indicatingResolution, setIndicatingResolution] = useState(false);
+  const [resolutionError, setResolutionError] = useState<string | null>(null);
+
+  // Administrator IT Priority state
+  const [adminPriority, setAdminPriority] = useState<Priority>("MEDIUM");
+  const [savingAdminPriority, setSavingAdminPriority] = useState(false);
+
+  // Public Comments state
+  const [comments, setComments] = useState<PublicComment[]>([]);
+  const [commentPage, setCommentPage] = useState(1);
+  const [commentTotalPages, setCommentTotalPages] = useState(1);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [newCommentBody, setNewCommentBody] = useState("");
+  const [postingComment, setPostingComment] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+
+  // Internal Notes state (only for Administrator)
+  const [notes, setNotes] = useState<InternalNote[]>([]);
+  const [notePage, setNotePage] = useState(1);
+  const [noteTotalPages, setNoteTotalPages] = useState(1);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+
   const fetchTicket = useCallback(async () => {
     const version = ++generation.current;
     setLoading(true);
     setError(null);
     try {
       const data = await getTicketDetail(ticketId);
-      if (version === generation.current) setTicket(data);
+      if (version === generation.current) {
+        setTicket(data);
+        setAdminPriority(data.itPriority);
+      }
     } catch (err: unknown) {
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Failed to load ticket details";
+        err instanceof Error ? err.message : "Failed to load ticket details";
       if (version === generation.current) setError(msg);
     } finally {
       if (version === generation.current) setLoading(false);
     }
   }, [ticketId]);
 
+  const loadComments = useCallback(
+    async (page: number, append = false) => {
+      setLoadingComments(true);
+      try {
+        const res = await getPublicComments(ticketId, { page, pageSize: 10 });
+        setComments((prev) => (append ? [...prev, ...res.data] : res.data));
+        setCommentPage(res.pagination.page);
+        setCommentTotalPages(res.pagination.totalPages);
+      } catch {
+        // Non-blocking
+      } finally {
+        setLoadingComments(false);
+      }
+    },
+    [ticketId]
+  );
+
+  const loadNotes = useCallback(
+    async (page: number, append = false) => {
+      if (!isAdmin) return;
+      setLoadingNotes(true);
+      try {
+        const res = await getInternalNotes(ticketId, { page, pageSize: 10 });
+        setNotes((prev) => (append ? [...prev, ...res.data] : res.data));
+        setNotePage(res.pagination.page);
+        setNoteTotalPages(res.pagination.totalPages);
+      } catch {
+        // Non-blocking
+      } finally {
+        setLoadingNotes(false);
+      }
+    },
+    [ticketId, isAdmin]
+  );
+
   useEffect(() => {
     fetchTicket();
-  }, [fetchTicket]);
+    loadComments(1);
+    if (isAdmin) {
+      loadNotes(1);
+    }
+  }, [fetchTicket, loadComments, loadNotes, isAdmin]);
 
   // Download handler
   const handleDownload = async (attachment: Attachment) => {
@@ -66,9 +168,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
       await downloadAttachment(attachment.id, attachment.fileName, transfer.current.signal);
     } catch (err: unknown) {
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Failed to download attachment file";
+        err instanceof Error ? err.message : "Failed to download attachment file";
       setDownloadError(msg);
     } finally {
       setDownloadingId(null);
@@ -95,19 +195,19 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
     if (!modalAttachment) return;
     const trimmedReason = removalReason.trim();
     if (!trimmedReason || [...trimmedReason].length > 1000) {
-      setRemovalError(!trimmedReason ? "A removal reason is mandatory and cannot be blank." : "Removal reason must be at most 1000 characters.");
+      setRemovalError(
+        !trimmedReason
+          ? "A removal reason is mandatory and cannot be blank."
+          : "Removal reason must be at most 1000 characters."
+      );
       return;
     }
 
     setIsRemoving(true);
     setRemovalError(null);
     try {
-      const updated = await softRemoveAttachment(
-        modalAttachment.id,
-        trimmedReason
-      );
+      const updated = await softRemoveAttachment(modalAttachment.id, trimmedReason);
 
-      // Update state in-place
       setTicket((prev) => {
         if (!prev) return null;
         const updatedAttachments = prev.attachments?.map((a) =>
@@ -123,21 +223,120 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
         return {
           ...prev,
           attachments: updatedAttachments,
+          attachmentCount: Math.max(0, (prev.attachmentCount ?? 1) - 1),
         };
       });
 
-      setActionNotice(
-        `Attachment "${modalAttachment.fileName}" was soft-removed successfully.`
-      );
+      setActionNotice(`Attachment "${modalAttachment.fileName}" was soft-removed successfully.`);
       setModalAttachment(null);
       setRemovalReason("");
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to remove attachment";
+      const msg = err instanceof Error ? err.message : "Failed to remove attachment";
       setRemovalError(msg);
       void fetchTicket();
     } finally {
       setIsRemoving(false);
+    }
+  };
+
+  // Handle file upload from detail
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setDownloadError(null);
+    try {
+      const newAtt = await uploadAttachment(ticketId, file, transfer.current.signal);
+      setTicket((prev) =>
+        prev
+          ? {
+              ...prev,
+              attachments: [...(prev.attachments || []), newAtt],
+              attachmentCount: (prev.attachmentCount || 0) + 1,
+            }
+          : null
+      );
+      setActionNotice(`Attachment "${file.name}" uploaded successfully.`);
+      event.target.value = "";
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to upload attachment";
+      setDownloadError(msg);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Handle Resolution Indication
+  const handleConfirmResolution = async () => {
+    setIndicatingResolution(true);
+    setResolutionError(null);
+    try {
+      const res = await indicateResolution(ticketId);
+      setTicket((prev) =>
+        prev
+          ? {
+              ...prev,
+              resolutionSuggestedAt: res.resolutionSuggestedAt,
+              resolutionSuggestedById: res.resolutionSuggestedById,
+            }
+          : null
+      );
+      setShowResolutionModal(false);
+      setActionNotice("You have indicated that this problem appears resolved.");
+    } catch (err: any) {
+      setResolutionError(err.message || "Failed to indicate resolution.");
+    } finally {
+      setIndicatingResolution(false);
+    }
+  };
+
+  // Handle Save Priority (Administrator)
+  const handleSaveAdminPriority = async () => {
+    setSavingAdminPriority(true);
+    try {
+      const updated = await updateTicketPriority(ticketId, adminPriority);
+      setTicket((prev) =>
+        prev
+          ? {
+              ...prev,
+              itPriority: updated.itPriority,
+              updatedAt: updated.updatedAt,
+            }
+          : null
+      );
+      setActionNotice(`IT Priority updated to ${adminPriority}.`);
+    } catch (err: any) {
+      setDownloadError(err.message || "Failed to update IT Priority.");
+    } finally {
+      setSavingAdminPriority(false);
+    }
+  };
+
+  // Handle Post Public Comment
+  const handlePostComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCommentError(null);
+    const trimmed = newCommentBody.trim();
+    if (!trimmed) {
+      setCommentError("Comment cannot be empty.");
+      return;
+    }
+    if ([...trimmed].length > 4000) {
+      setCommentError("Comment must be 4000 characters or fewer.");
+      return;
+    }
+
+    setPostingComment(true);
+    try {
+      const created = await createPublicComment(ticketId, trimmed);
+      setComments((prev) => [...prev, created]);
+      setNewCommentBody("");
+      setActionNotice("Public comment posted.");
+    } catch (err: any) {
+      setCommentError(err.message || "Failed to post comment.");
+    } finally {
+      setPostingComment(false);
     }
   };
 
@@ -150,40 +349,14 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
-  const formatDate = (isoString?: string | null): string => {
-    if (!isoString) return "-";
-    try {
-      return new Date(isoString).toLocaleString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return isoString;
-    }
-  };
-
-  const getStatusBadgeClass = (status: string) => {
-    switch (status.toUpperCase()) {
-      case "NEW":
-        return "badge-status badge-status-new";
-      case "OPEN":
-        return "badge-status badge-status-open";
-      case "IN_PROGRESS":
-        return "badge-status badge-status-in-progress";
-      case "RESOLVED":
-        return "badge-status badge-status-resolved";
-      case "CLOSED":
-        return "badge-status badge-status-closed";
-      default:
-        return "badge-status";
-    }
+  const formatDate = (dateString?: string | null): string => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? dateString : date.toLocaleString();
   };
 
   const getPriorityBadgeClass = (priority: string) => {
-    switch (priority.toUpperCase()) {
+    switch (priority) {
       case "CRITICAL":
         return "badge-priority badge-priority-critical";
       case "HIGH":
@@ -194,6 +367,29 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
         return "badge-priority badge-priority-low";
       default:
         return "badge-priority";
+    }
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case "NEW":
+        return "badge-status badge-status-new";
+      case "OPEN":
+        return "badge-status badge-status-open";
+      case "IN_PROGRESS":
+        return "badge-status badge-status-in-progress";
+      case "WAITING_FOR_REQUESTER":
+        return "badge-status badge-status-waiting-for-requester";
+      case "RESOLVED":
+        return "badge-status badge-status-resolved";
+      case "CLOSED":
+        return "badge-status badge-status-closed";
+      case "REOPENED":
+        return "badge-status badge-status-reopened";
+      case "CANCELLED":
+        return "badge-status badge-status-cancelled";
+      default:
+        return "badge-status";
     }
   };
 
@@ -238,32 +434,48 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
           className="btn btn-zen-outline"
           onClick={onBack}
         >
-          &larr; Back to My Tickets
+          &larr; Back
         </button>
       </div>
     );
   }
 
-  const activeAttachments =
-    ticket.attachments?.filter((a) => !a.isRemoved) || [];
-  const removedAttachments =
-    ticket.attachments?.filter((a) => a.isRemoved) || [];
+  const isOwnTicket = user ? ticket.requesterId === user.id : false;
+  const canIndicateResolution = isRequester && isOwnTicket && ACTIVE_RESOLUTION_STATUSES.includes(ticket.currentStatus);
+
+  const activeAttachments = ticket.attachments?.filter((a) => !a.isRemoved) || [];
+  const removedAttachments = ticket.attachments?.filter((a) => a.isRemoved) || [];
 
   return (
-    <div className="ticket-detail-view">
+    <div className="ticket-detail-view" aria-label="Ticket Detail View">
       {/* Navigation and Actions Header */}
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <button
           type="button"
           className="btn btn-zen-outline d-inline-flex align-items-center gap-2"
           onClick={onBack}
-          aria-label="Back to My Tickets"
+          aria-label={isAdmin ? "Back" : "Back to My Tickets"}
         >
           <span>&larr;</span>
-          <span>Back to My Tickets</span>
+          <span>{isAdmin ? "Back" : "Back to My Tickets"}</span>
         </button>
 
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex flex-wrap align-items-center gap-2">
+          {/* Problem Appears Resolved action button */}
+          {canIndicateResolution && (
+            <button
+              type="button"
+              className="btn btn-outline-success btn-sm"
+              disabled={Boolean((ticket as any).resolutionSuggestedAt) || indicatingResolution}
+              onClick={() => {
+                setResolutionError(null);
+                setShowResolutionModal(true);
+              }}
+            >
+              {(ticket as any).resolutionSuggestedAt ? "Resolution Indicated" : "Problem Appears Resolved"}
+            </button>
+          )}
+
           <span className={getPriorityBadgeClass(ticket.requestedPriority)}>
             {ticket.requestedPriority} Requested Priority
           </span>
@@ -305,6 +517,21 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
         </div>
       )}
 
+      {/* Requester Resolution Notice Banner */}
+      {(ticket as any).resolutionSuggestedAt && (
+        <div className="alert alert-info d-flex align-items-center gap-2 mb-4" role="status">
+          <span>💡</span>
+          <div>
+            <strong>Resolution Notice:</strong>{" "}
+            {isRequester ? "You" : "The requester"}{" "}
+            indicated this problem appears resolved on{" "}
+            <time dateTime={(ticket as any).resolutionSuggestedAt}>
+              {formatDate((ticket as any).resolutionSuggestedAt)}
+            </time>.
+          </div>
+        </div>
+      )}
+
       {/* Ticket Main Card */}
       <div className="zen-card mb-4">
         {/* Ticket Header Title */}
@@ -323,10 +550,46 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
 
         {/* Ticket Metadata Grid */}
         <div className="row g-3 mb-4">
-          <div className="col-12 col-md-4"><div className="small text-muted">Requested Priority</div>
-            <div className="p-2 border rounded" style={{ backgroundColor: "var(--readonly-bg)" }}>{ticket.requestedPriority}</div></div>
-          <div className="col-12 col-md-4"><div className="small text-muted">IT Priority</div>
-            <div className="p-2 border rounded" style={{ backgroundColor: "var(--readonly-bg)" }}>{ticket.itPriority}</div></div>
+          <div className="col-12 col-md-4">
+            <div className="small text-muted">Requested Priority</div>
+            <div className="p-2 border rounded" style={{ backgroundColor: "var(--readonly-bg)" }}>
+              {ticket.requestedPriority}
+            </div>
+          </div>
+
+          <div className="col-12 col-md-4">
+            <div className="small text-muted">IT Priority</div>
+            {isAdmin ? (
+              <div className="d-flex gap-2 align-items-center mt-1">
+                <select
+                  aria-label="IT Priority"
+                  className="form-select form-select-sm"
+                  style={{ maxWidth: 160 }}
+                  value={adminPriority}
+                  onChange={(e) => setAdminPriority(e.target.value as Priority)}
+                >
+                  {PRIORITIES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  disabled={savingAdminPriority}
+                  onClick={handleSaveAdminPriority}
+                >
+                  {savingAdminPriority ? "Saving..." : "Save Priority"}
+                </button>
+              </div>
+            ) : (
+              <div className="p-2 border rounded" style={{ backgroundColor: "var(--readonly-bg)" }}>
+                {ticket.itPriority}
+              </div>
+            )}
+          </div>
+
           <div className="col-12 col-md-4">
             <div className="small text-muted">Category</div>
             <div className="fw-semibold">
@@ -349,48 +612,26 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
           <div className="col-12 col-md-4">
             <div className="small text-muted">Submitted By</div>
             <div className="fw-semibold">
-              {ticket.requester?.name} ({ticket.requester?.email})
+              {ticket.requester?.name ? `${ticket.requester.name} (${ticket.requester.email})` : `Requester #${ticket.requesterId}`}
             </div>
-          </div>
-
-          <div className="col-12 col-md-4">
-            <div className="small text-muted">Current Status</div>
-            <div>
-              <span className={getStatusBadgeClass(ticket.currentStatus)}>
-                {ticket.currentStatus.replace("_", " ")}
-              </span>
-            </div>
-          </div>
-
-          <div className="col-12 col-md-4">
-            <div className="small text-muted">Last Updated</div>
-            <div className="fw-semibold">{formatDate(ticket.updatedAt)}</div>
           </div>
         </div>
 
-        {/* Problem Summary & Description */}
+        {/* Summary */}
         <div className="mb-4">
-          <label className="form-label small fw-bold text-muted text-uppercase">
-            Summary
-          </label>
-          <div
-            className="p-3 border rounded bg-white fw-semibold"
-            style={{ fontSize: "1.05rem" }}
-          >
-            {ticket.summary}
-          </div>
+          <div className="small text-muted mb-1">Issue Summary</div>
+          <h2 className="h5 fw-bold text-dark mb-0">{ticket.summary}</h2>
         </div>
 
+        {/* Description */}
         <div className="mb-2">
-          <label className="form-label small fw-bold text-muted text-uppercase">
-            Description
-          </label>
+          <div className="small text-muted mb-1">Detailed Description</div>
           <div
-            className="p-3 border rounded"
+            className="p-3 border rounded bg-light"
             style={{
-              backgroundColor: "var(--readonly-bg)",
               whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
+              minHeight: "100px",
+              color: "var(--text-primary)",
               lineHeight: 1.6,
             }}
           >
@@ -401,59 +642,66 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
 
       {/* Attachments Section */}
       <div className="zen-card mb-4">
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <h2 className="h5 fw-bold mb-0" style={{ color: "var(--text-primary)" }}>
-            Attached Documents & Files
-          </h2>
-          <span
-            className="badge"
-            style={{
-              backgroundColor: "var(--pale-green)",
-              color: "var(--primary-green)",
-              fontWeight: 600,
-            }}
-          >
-            {activeAttachments.length} Active{" "}
-            {activeAttachments.length === 1 ? "File" : "Files"}
-          </span>
+        <div className="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+          <div>
+            <h3 className="h6 fw-bold mb-0 text-dark">
+              Attachments ({ticket.attachmentCount || 0} / 5)
+            </h3>
+            <div className="small text-muted">
+              Files uploaded to support this ticket
+            </div>
+          </div>
+
+          {/* Add Attachment action for non-admin */}
+          {!isAdmin && (
+            <div>
+              <label
+                htmlFor="detail-file-upload"
+                className={`btn btn-zen-outline btn-sm mb-0 ${
+                  uploading || (ticket.attachmentCount || 0) >= 5 ? "disabled" : ""
+                }`}
+                style={{ cursor: "pointer" }}
+              >
+                {uploading ? (
+                  <>
+                    <span
+                      className="spinner-border spinner-border-sm me-1"
+                      role="status"
+                      aria-hidden="true"
+                    ></span>
+                    Uploading...
+                  </>
+                ) : (
+                  "+ Add Attachment"
+                )}
+              </label>
+              <input
+                id="detail-file-upload"
+                type="file"
+                className="d-none"
+                aria-label="Add Attachment"
+                onChange={handleFileUpload}
+                disabled={uploading || (ticket.attachmentCount || 0) >= 5}
+                accept=".jpg,.jpeg,.png,.webp,.pdf"
+              />
+            </div>
+          )}
         </div>
 
-        <label className="form-label">Add Attachment
-          <input type="file" className="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf" disabled={uploading || activeAttachments.length >= 5}
-            onChange={async e => {
-              const file = e.target.files?.[0]; e.target.value = "";
-              if (!file) return;
-              setDownloadError(null);
-              if (!/\.(jpe?g|png|webp|pdf)$/i.test(file.name) || file.size === 0 || file.size > 5242880) {
-                setDownloadError("Choose JPG, PNG, WEBP or PDF, nonempty and at most 5 MB."); return;
-              }
-              setUploading(true);
-              try {
-                await uploadAttachment(ticketId, file, transfer.current.signal);
-                if (!transfer.current.signal.aborted) { setActionNotice("Attachment uploaded."); await fetchTicket(); }
-              } catch {
-                if (!transfer.current.signal.aborted) { setDownloadError("Upload could not be confirmed. Inspect refreshed attachments before retrying."); await fetchTicket(); }
-              } finally { setUploading(false); }
-            }} />
-        </label>
-        <p className="small text-muted">{uploading ? "Uploading..." : "Up to five active files, 5 MB each. JPG, JPEG, PNG, WEBP or PDF."}</p>
-        {/* Empty attachments notice */}
-        {(!ticket.attachments || ticket.attachments.length === 0) && (
-          <div className="text-muted text-center py-4 border rounded bg-light">
-            No supporting attachments were uploaded with this ticket.
-          </div>
-        )}
-
         {/* Active Attachments List */}
-        {activeAttachments.length > 0 && (
+        {activeAttachments.length === 0 ? (
+          <div className="p-3 text-center text-muted small bg-light rounded border border-dashed">
+            No active attachments associated with this ticket.
+          </div>
+        ) : (
           <div className="list-group mb-3">
             {activeAttachments.map((att) => (
               <div
                 key={att.id}
-                className="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 p-3"
+                className="list-group-item list-group-item-action d-flex flex-column flex-md-row justify-content-between align-items-md-center p-3 gap-2"
               >
                 <div className="d-flex align-items-center gap-3">
-                  <span style={{ fontSize: "1.75rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>
                     {getFileIcon(att.mimeType)}
                   </span>
                   <div>
@@ -465,37 +713,47 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
                   </div>
                 </div>
 
-                <div className="d-flex align-items-center gap-2 mt-2 mt-md-0">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-zen-outline d-inline-flex align-items-center gap-1"
-                    onClick={() => handleDownload(att)}
-                    disabled={downloadingId === att.id}
-                    aria-label={`Download ${att.fileName}`}
-                  >
-                    {downloadingId === att.id ? "⬇ Downloading..." : "⬇ Download"}
-                  </button>
+                {!isAdmin && (
+                  <div className="d-flex align-items-center gap-2 align-self-end align-self-md-center">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                      onClick={() => handleDownload(att)}
+                      disabled={downloadingId === att.id}
+                      aria-label={`Download ${att.fileName}`}
+                    >
+                      {downloadingId === att.id ? (
+                        <span
+                          className="spinner-border spinner-border-sm"
+                          role="status"
+                          aria-hidden="true"
+                        ></span>
+                      ) : (
+                        <span>⬇️</span>
+                      )}
+                      <span>Download</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
-                    onClick={() => openRemoveModal(att)}
-                    aria-label={`Remove ${att.fileName}`}
-                  >
-                    🗑 Remove
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
+                      onClick={() => openRemoveModal(att)}
+                      aria-label={`Remove ${att.fileName}`}
+                    >
+                      <span>🗑️</span>
+                      <span>Remove</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
 
-        {/* Soft-Removed Attachments Archive */}
+        {/* Soft-Removed Attachments Audit View */}
         {removedAttachments.length > 0 && (
           <div className="mt-4 pt-3 border-top">
-            <h3 className="h6 fw-bold text-muted text-uppercase mb-3">
-              Archived / Removed Attachments ({removedAttachments.length})
-            </h3>
+            <h4 className="h6 text-muted mb-2">Removed Attachments Audit Log</h4>
             <div className="list-group">
               {removedAttachments.map((att) => (
                 <div
@@ -525,7 +783,6 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
                     </div>
                   </div>
 
-                  {/* Removal details banner */}
                   <div className="mt-2 pt-2 border-top small text-muted">
                     <div>
                       <strong>Removal Reason:</strong>{" "}
@@ -544,6 +801,177 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
           </div>
         )}
       </div>
+
+      {/* Public Comments Section */}
+      <div className="zen-card mb-4">
+        <div className="border-bottom pb-2 mb-3">
+          <h3 className="h5 fw-bold mb-0">Public Comments</h3>
+          <p className="text-muted small mb-0">Public &mdash; visible to the Requester</p>
+        </div>
+
+        {commentError && (
+          <div className="alert alert-danger py-2 mb-2" role="alert">
+            {commentError}
+          </div>
+        )}
+
+        <div className="mb-3 pe-1">
+          {comments.length === 0 && !loadingComments && (
+            <p className="text-muted small">No public comments yet.</p>
+          )}
+          {comments.map((c) => (
+            <div key={c.id} className="p-3 mb-2 rounded border bg-white">
+              <div className="d-flex justify-content-between small text-muted mb-1">
+                <strong>{c.author.name}</strong>
+                <time dateTime={c.createdAt}>{formatDate(c.createdAt)}</time>
+              </div>
+              <div style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
+            </div>
+          ))}
+
+          {commentPage < commentTotalPages && (
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm w-100 mt-2"
+              onClick={() => loadComments(commentPage + 1, true)}
+              disabled={loadingComments}
+            >
+              {loadingComments ? "Loading..." : "Load More Comments"}
+            </button>
+          )}
+        </div>
+
+        {/* Composer for non-admin */}
+        {!isAdmin && (
+          <form onSubmit={handlePostComment} className="mt-3 border-top pt-3">
+            <label htmlFor="public-comment-body" className="form-label small fw-bold">
+              Add Public Comment
+            </label>
+            <textarea
+              id="public-comment-body"
+              aria-label="Public comment"
+              className="form-control mb-1"
+              rows={3}
+              placeholder="Type your comment or update here..."
+              value={newCommentBody}
+              onChange={(e) => setNewCommentBody(e.target.value)}
+              maxLength={4000}
+              required
+            />
+            <div className="d-flex justify-content-between align-items-center">
+              <span className="small text-muted">{newCommentBody.length} / 4000</span>
+              <button
+                type="submit"
+                className="btn btn-zen-primary btn-sm"
+                disabled={postingComment || !newCommentBody.trim()}
+              >
+                {postingComment ? "Posting..." : "Post Comment"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* Internal Notes Section (Administrator Read-Only) */}
+      {isAdmin && (
+        <div className="zen-card mb-4" style={{ backgroundColor: "#fdfbf7", borderColor: "#f3e8d2" }}>
+          <div className="border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
+            <div>
+              <h3 className="h5 fw-bold mb-0 text-dark">
+                🔒 Internal Notes
+              </h3>
+              <p className="text-muted small mb-0">Internal &mdash; IT Staff and Administrator only (Read-Only)</p>
+            </div>
+            <span className="badge bg-warning text-dark">Private</span>
+          </div>
+
+          <div className="mb-2 pe-1">
+            {notes.length === 0 && !loadingNotes && (
+              <p className="text-muted small">No internal notes recorded.</p>
+            )}
+            {notes.map((n) => (
+              <div key={n.id} className="p-3 mb-2 rounded border bg-white" style={{ borderColor: "#ecdcc3" }}>
+                <div className="d-flex justify-content-between small text-muted mb-1">
+                  <strong className="text-dark">{n.author.name}</strong>
+                  <time dateTime={n.createdAt}>{formatDate(n.createdAt)}</time>
+                </div>
+                <div style={{ whiteSpace: "pre-wrap" }}>{n.body}</div>
+              </div>
+            ))}
+
+            {notePage < noteTotalPages && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm w-100 mt-2"
+                onClick={() => loadNotes(notePage + 1, true)}
+                disabled={loadingNotes}
+              >
+                {loadingNotes ? "Loading..." : "Load More Notes"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Problem Appears Resolved Confirmation Modal */}
+      {showResolutionModal && (
+        <div
+          className="modal fade show d-block"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="modal-dialog modal-dialog-centered" role="document">
+            <div className="modal-content border-0 shadow">
+              <div
+                className="modal-header text-white"
+                style={{ backgroundColor: "var(--primary-green)" }}
+              >
+                <h5 className="modal-title h6 fw-bold">
+                  Confirm Problem Appears Resolved
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => setShowResolutionModal(false)}
+                  aria-label="Close"
+                ></button>
+              </div>
+
+              <div className="modal-body p-4">
+                <p className="mb-2">
+                  This informs IT Staff; it does not close your ticket.
+                </p>
+                <p className="small text-muted mb-0">
+                  IT Staff will review your confirmation and formally resolve the ticket.
+                </p>
+                {resolutionError && (
+                  <div className="alert alert-danger py-2 mt-2">{resolutionError}</div>
+                )}
+              </div>
+
+              <div className="modal-footer bg-light p-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => setShowResolutionModal(false)}
+                  disabled={indicatingResolution}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-zen-primary"
+                  onClick={handleConfirmResolution}
+                  disabled={indicatingResolution}
+                >
+                  {indicatingResolution ? "Submitting..." : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Soft Removal Confirmation Modal Dialog */}
       {modalAttachment && (
@@ -575,8 +1003,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
                   Are you sure you want to remove the following file?
                 </p>
                 <div className="p-2 border rounded bg-light mb-3 text-break fw-semibold">
-                  📄 {modalAttachment.fileName} (
-                  {formatBytes(modalAttachment.fileSize)})
+                  📄 {modalAttachment.fileName} ({formatBytes(modalAttachment.fileSize)})
                 </div>
 
                 <div className="alert alert-warning small mb-3">

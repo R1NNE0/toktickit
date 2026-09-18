@@ -103,6 +103,52 @@ export interface StaffTicketRow extends Ticket {
   resolutionSuggestedAt: string | null;
   resolutionSuggestedById: number | null;
 }
+
+export interface StaffTicketDetail extends Ticket {
+  requester: { id: number; name: string; email: string };
+  ownerId: number | null;
+  owner: { id: number; name: string; role: "IT_STAFF" | "ADMINISTRATOR"; isActive: boolean } | null;
+  attachments: Attachment[];
+  attachmentCount: number;
+  resolutionSuggestedAt: string | null;
+  resolutionSuggestedById: number | null;
+}
+
+export interface Assignee {
+  id: number;
+  name: string;
+  role: "IT_STAFF" | "ADMINISTRATOR";
+  isActive: boolean;
+}
+
+export interface PublicComment {
+  id: number;
+  ticketId: number;
+  body: string;
+  author: { id: number; name: string };
+  createdAt: string;
+}
+
+export interface InternalNote {
+  id: number;
+  ticketId: number;
+  body: string;
+  author: { id: number; name: string };
+  createdAt: string;
+}
+
+export interface PaginatedEntriesResponse<T> {
+  data: T[];
+  pagination: PaginationMeta;
+}
+
+export interface ResolutionIndicationResponse {
+  ticketId: number;
+  currentStatus: TicketStatus;
+  resolutionSuggestedAt: string;
+  resolutionSuggestedById: number;
+}
+
 export interface StaffQueueParams extends GetTicketsParams {
   itPriority?: string;
   ownerId?: number | "unassigned";
@@ -315,4 +361,122 @@ export async function checkSystem(): Promise<SystemStatus> {
   await getHealthStatus();
   const categories = await getCategories();
   return { online: true, categories };
+}
+
+export class ApiError extends Error {
+  constructor(public status: number, public code: string, message: string) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+async function handleApiResponse<T>(res: Response, defaultMessage: string): Promise<T> {
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const message = errorData.error || (errorData.details && errorData.details[0]?.message) || `${defaultMessage} (status ${res.status})`;
+    throw new ApiError(res.status, errorData.code || "ERROR", message);
+  }
+  return res.json();
+}
+
+export async function getStaffAssignees(signal?: AbortSignal): Promise<Assignee[]> {
+  const res = await authFetch("/api/staff/assignees", { signal });
+  return handleApiResponse<Assignee[]>(res, "Failed to fetch assignees");
+}
+
+export async function getStaffTicketDetail(id: number, signal?: AbortSignal): Promise<StaffTicketDetail> {
+  const res = await authFetch(`/api/staff/tickets/${id}`, { signal });
+  return handleApiResponse<StaffTicketDetail>(res, "Failed to fetch staff ticket detail");
+}
+
+export async function claimTicket(id: number): Promise<StaffTicketDetail> {
+  const res = await authFetch(`/api/staff/tickets/${id}/claim`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  return handleApiResponse<StaffTicketDetail>(res, "Failed to claim ticket");
+}
+
+export async function updateTicketOwner(id: number, ownerId: number | null): Promise<StaffTicketDetail> {
+  const res = await authFetch(`/api/staff/tickets/${id}/owner`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ownerId }),
+  });
+  return handleApiResponse<StaffTicketDetail>(res, "Failed to update ticket owner");
+}
+
+export async function updateTicketPriority(id: number, itPriority: Priority): Promise<Ticket> {
+  const res = await authFetch(`/api/staff/tickets/${id}/priority`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ itPriority }),
+  });
+  return handleApiResponse<Ticket>(res, "Failed to update ticket priority");
+}
+
+export async function updateTicketStatus(
+  id: number,
+  payload: { currentStatus: TicketStatus; confirmed?: boolean; reason?: string }
+): Promise<StaffTicketDetail> {
+  const res = await authFetch(`/api/staff/tickets/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleApiResponse<StaffTicketDetail>(res, "Failed to update ticket status");
+}
+
+export async function getPublicComments(
+  ticketId: number,
+  params?: { page?: number; pageSize?: number },
+  signal?: AbortSignal
+): Promise<PaginatedEntriesResponse<PublicComment>> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+  const qs = query.toString();
+  const res = await authFetch(`/api/tickets/${ticketId}/comments${qs ? `?${qs}` : ""}`, { signal });
+  return handleApiResponse<PaginatedEntriesResponse<PublicComment>>(res, "Failed to fetch comments");
+}
+
+export async function createPublicComment(ticketId: number, body: string): Promise<PublicComment> {
+  const res = await authFetch(`/api/tickets/${ticketId}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body }),
+  });
+  return handleApiResponse<PublicComment>(res, "Failed to create public comment");
+}
+
+export async function getInternalNotes(
+  ticketId: number,
+  params?: { page?: number; pageSize?: number },
+  signal?: AbortSignal
+): Promise<PaginatedEntriesResponse<InternalNote>> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+  const qs = query.toString();
+  const res = await authFetch(`/api/tickets/${ticketId}/notes${qs ? `?${qs}` : ""}`, { signal });
+  return handleApiResponse<PaginatedEntriesResponse<InternalNote>>(res, "Failed to fetch internal notes");
+}
+
+export async function createInternalNote(ticketId: number, body: string): Promise<InternalNote> {
+  const res = await authFetch(`/api/tickets/${ticketId}/notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body }),
+  });
+  return handleApiResponse<InternalNote>(res, "Failed to create internal note");
+}
+
+export async function indicateResolution(ticketId: number): Promise<ResolutionIndicationResponse> {
+  const res = await authFetch(`/api/tickets/${ticketId}/resolution-indication`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  return handleApiResponse<ResolutionIndicationResponse>(res, "Failed to indicate resolution");
 }

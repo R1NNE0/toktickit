@@ -57,6 +57,9 @@ model User {
 
   tickets Ticket[] @relation("TicketRequester")
   ownedTickets Ticket[] @relation("TicketOwner")
+  resolutionSuggestedTickets Ticket[] @relation("TicketResolutionSuggestedBy")
+  publicComments PublicComment[] @relation("PublicCommentAuthor")
+  internalNotes InternalNote[] @relation("InternalNoteAuthor")
   sessions Session[]
 
   @@map("RequesterUser")
@@ -113,7 +116,13 @@ model Ticket {
 
   idempotencyKey String?
 
+  resolutionSuggestedAt   DateTime?
+  resolutionSuggestedById Int?
+  resolutionSuggestedBy   User?     @relation("TicketResolutionSuggestedBy", fields: [resolutionSuggestedById], references: [id], onDelete: SetNull)
+
   attachments Attachment[]
+  publicComments PublicComment[]
+  internalNotes  InternalNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -137,4 +146,28 @@ model Attachment {
   createdAt     DateTime  @default(now())
 
   @@index([ticketId])
+}
+
+model PublicComment {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  Int
+  author    User     @relation("PublicCommentAuthor", fields: [authorId], references: [id])
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt, id])
+}
+
+model InternalNote {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  Int
+  author    User     @relation("InternalNoteAuthor", fields: [authorId], references: [id])
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt, id])
 }

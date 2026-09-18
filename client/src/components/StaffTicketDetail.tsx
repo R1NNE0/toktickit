@@ -67,9 +67,7 @@ const TRANSITIONS_FROM: Record<string, TransitionOption[]> = {
     { to: "OPEN", label: "Open", requiresConfirmation: false, requiresReason: false, requiresOwner: false },
     { to: "CANCELLED", label: "Cancel", requiresConfirmation: true, requiresReason: true, requiresOwner: false },
   ],
-  CANCELLED: [
-    { to: "REOPENED", label: "Reopen", requiresConfirmation: true, requiresReason: true, requiresOwner: false },
-  ],
+  CANCELLED: [],
 };
 
 const PRIORITIES: Priority[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];

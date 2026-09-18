@@ -185,6 +185,24 @@ describe("UI-08 Staff Ticket Detail: Read-Only Context, Claim, Assignment, Prior
     expect(screen.getByText(/Requester Resolution Notice:/i)).toBeInTheDocument();
     expect(screen.getByText(/requester indicated that this problem appears resolved/i)).toBeInTheDocument();
   });
+
+  it("renders terminal state message and no next-status controls when ticket is CANCELLED", async () => {
+    vi.mocked(api.getStaffTicketDetail).mockResolvedValue({
+      ...baseStaffTicket,
+      currentStatus: "CANCELLED",
+    });
+
+    render(<StaffTicketDetail ticketId={101} onBack={() => {}} />);
+    await screen.findByText(baseStaffTicket.ticketNumber);
+
+    // Verify terminal message is rendered
+    expect(screen.getByText("No further transitions available from this state.")).toBeInTheDocument();
+
+    // Verify no Next Status select or Reopen action is rendered
+    expect(screen.queryByLabelText("Next Status")).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Reopen/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Update Status" })).not.toBeInTheDocument();
+  });
 });
 
 describe("UI-09 Staff Ticket Detail: Separate Public Comments & Internal Notes Threads", () => {

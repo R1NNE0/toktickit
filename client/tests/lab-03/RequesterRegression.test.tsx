@@ -92,6 +92,70 @@ describe("UI-04/05/06 Requester continuity (communication deferred to P5)", () =
     await userEvent.upload(screen.getByLabelText("Add Attachment"), file);
     expect(await screen.findByText(file.name)).toBeInTheDocument();
     expect(upload).toHaveBeenCalledWith(101, file, expect.any(AbortSignal));
-    expect(screen.queryByText(/Internal Notes|Claim Ticket|Problem Appears Resolved/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Internal Notes|Claim Ticket/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Problem Appears Resolved" })).toBeInTheDocument();
+  });
+
+  it("UI-06: handles Problem Appears Resolved indication and clears on reopening", async () => {
+    const indicate = vi.spyOn(api, "indicateResolution").mockResolvedValue({
+      ticketId: 101,
+      currentStatus: "NEW",
+      resolutionSuggestedAt: "2026-09-18T12:00:00.000Z",
+      resolutionSuggestedById: 1,
+    });
+
+    const { unmount } = render(<TicketDetail ticketId={101} onBack={() => {}} />);
+    await screen.findByText(ticket.ticketNumber);
+
+    // Click Problem Appears Resolved
+    const btn = screen.getByRole("button", { name: "Problem Appears Resolved" });
+    await userEvent.click(btn);
+
+    // Modal opens explaining effect
+    expect(screen.getByText(/This informs IT Staff; it does not close your ticket/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Confirm$/i }));
+
+    expect(indicate).toHaveBeenCalledWith(101);
+    expect(await screen.findByText(/You indicated this problem appears resolved/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resolution Indicated" })).toBeDisabled();
+
+    // Now simulate Staff reopening the ticket (clearing resolutionSuggestedAt)
+    vi.mocked(api.getTicketDetail).mockResolvedValue({
+      ...ticket,
+      currentStatus: "REOPENED",
+      resolutionSuggestedAt: null,
+      resolutionSuggestedById: null,
+    } as any);
+
+    // Unmount and remount to reload ticket state
+    unmount();
+    render(<TicketDetail ticketId={101} onBack={() => {}} />);
+    await waitFor(() => expect(screen.queryByText(/You indicated this problem appears resolved/i)).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Problem Appears Resolved" })).toBeEnabled();
+  });
+
+  it("UI-06: displays public comments and allows Requester to post comments without exposing internal notes", async () => {
+    vi.spyOn(api, "getPublicComments").mockResolvedValue({
+      data: [{ id: 1, ticketId: 101, body: "Staff update message", author: { id: 2, name: "Staff Member" }, createdAt: "2026-09-18T10:00:00.000Z" }],
+      pagination: { page: 1, pageSize: 10, totalItems: 1, totalPages: 1 },
+    });
+    const post = vi.spyOn(api, "createPublicComment").mockResolvedValue({
+      id: 2, ticketId: 101, body: "Requester response", author: { id: 1, name: "Session Requester" }, createdAt: "2026-09-18T10:05:00.000Z",
+    });
+
+    render(<TicketDetail ticketId={101} onBack={() => {}} />);
+    await screen.findByText("Staff update message");
+    expect(screen.getByText("Staff Member")).toBeInTheDocument();
+
+    // Verify Internal Notes is completely absent
+    expect(screen.queryByText(/Internal Notes/i)).not.toBeInTheDocument();
+
+    // Post comment
+    const input = screen.getByLabelText("Public comment");
+    await userEvent.type(input, "Requester response");
+    await userEvent.click(screen.getByRole("button", { name: "Post Comment" }));
+
+    expect(post).toHaveBeenCalledWith(101, "Requester response");
+    expect(await screen.findByText("Requester response")).toBeInTheDocument();
   });
 });

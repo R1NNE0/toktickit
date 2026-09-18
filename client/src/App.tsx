@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "./components/Header.js";
 import { AuthProvider, useAuth } from "./context/AuthContext.js";
 import { Login } from "./components/Login.js";
@@ -7,6 +7,7 @@ import { CreateTicket } from "./components/CreateTicket.js";
 import { MyTickets } from "./components/MyTickets.js";
 import { TicketDetail } from "./components/TicketDetail.js";
 import { StaffTicketQueue } from "./components/StaffTicketQueue.js";
+import { StaffTicketDetail } from "./components/StaffTicketDetail.js";
 import { checkSystem, Category } from "./api.js";
 
 type UiState = "idle" | "loading" | "success" | "error";
@@ -32,6 +33,19 @@ function MainContent() {
   const [isFormDirty, setIsFormDirty] = useState<boolean>(false);
   const [queueNavigation, setQueueNavigation] = useState(0);
 
+  // Hash deep link support (e.g. #/tickets/123)
+  useEffect(() => {
+    const handleHash = () => {
+      const match = window.location.hash.match(/^#\/tickets\/(\d+)$/);
+      if (match) {
+        setSelectedTicketId(Number(match[1]));
+      }
+    };
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
   // Safe navigation with unsaved changes guard
   const handleNavigate = (tab: string) => {
     if (isFormDirty && activeTab === "create-ticket") {
@@ -41,6 +55,9 @@ function MainContent() {
       if (!confirmLeave) return;
     }
     setSelectedTicketId(null);
+    if (window.location.hash.startsWith("#/tickets/")) {
+      window.location.hash = "";
+    }
     setActiveTab(tab);
     if (tab === "staff-queue") setQueueNavigation(value => value + 1);
   };
@@ -80,9 +97,38 @@ function MainContent() {
           : auth.user.mustChangePassword || changingPassword ? <ChangePassword mandatory={auth.user.mustChangePassword}
               onSubmit={async body => { await auth.changePassword(body); setChangingPassword(false); }}
               onCancel={() => setChangingPassword(false)} />
-          : auth.user.role === "IT_STAFF" ? <StaffTicketQueue navigationVersion={queueNavigation} />
-          : auth.user.role !== "REQUESTER" ? <div className="zen-card"><h1 className="h4">Welcome, {auth.user.name}</h1>
-              <p>Signed in as Administrator.</p></div>
+          : auth.user.role === "IT_STAFF" ? (
+            selectedTicketId ? (
+              <StaffTicketDetail
+                ticketId={selectedTicketId}
+                onBack={() => {
+                  setSelectedTicketId(null);
+                  if (window.location.hash.startsWith("#/tickets/")) window.location.hash = "";
+                }}
+              />
+            ) : (
+              <StaffTicketQueue
+                navigationVersion={queueNavigation}
+                onOpenDetail={id => setSelectedTicketId(id)}
+              />
+            )
+          )
+          : auth.user.role !== "REQUESTER" ? (
+            selectedTicketId ? (
+              <TicketDetail
+                ticketId={selectedTicketId}
+                onBack={() => {
+                  setSelectedTicketId(null);
+                  if (window.location.hash.startsWith("#/tickets/")) window.location.hash = "";
+                }}
+              />
+            ) : (
+              <div className="zen-card">
+                <h1 className="h4 fw-bold mb-1">Welcome, {auth.user.name}</h1>
+                <p className="text-muted mb-0">Signed in as Administrator.</p>
+              </div>
+            )
+          )
           : currentRequester && (
           <div>
             {/* Active Requester Welcome Card */}

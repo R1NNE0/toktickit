@@ -12,6 +12,22 @@ import { requireRequester } from "./middleware/requesterAuth.js";
 import { createAuth, authErrorHandler, requireNormal } from "./auth/http.js";
 import { generateTicketNumber } from "./utils/ticketNumber.js";
 import { staffQueue } from "./staffQueue.js";
+import {
+  getStaffAssignees,
+  getStaffTicketDetail,
+  claimTicket,
+  updateTicketOwner,
+  updateTicketPriority,
+  updateTicketStatus,
+  formatTicketDetail,
+} from "./staffTicket.js";
+import {
+  getPublicComments,
+  createPublicComment,
+  getInternalNotes,
+  createInternalNote,
+  indicateResolution,
+} from "./commentsNotes.js";
 
 // The Express app is exported separately from app.listen() (see index.ts) so
 // Supertest can import `app` without opening a port. Do not merge these files.
@@ -29,7 +45,7 @@ app.use("/api", (req, res, next) => {
     next();
   } catch (error) { next(error); }
 });
-app.use(["/api/tickets", "/api/attachments"], (req, res, next) => {
+app.use(["/api/tickets", "/api/attachments", "/api/staff"], (req, res, next) => {
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) auth.mutation(req, res, next);
   else next();
 });
@@ -37,7 +53,33 @@ app.use(["/api/tickets", "/api/attachments"], (req, res, next) => {
 // Max 32-bit signed integer boundary (PostgreSQL serial/int)
 const MAX_INT = 2147483647;
 
+function requireAttachmentActor(req: Request) {
+  const user = requireNormal(req);
+  if (user.role === "ADMINISTRATOR") {
+    throw new HttpError(403, "FORBIDDEN", "Administrators are not permitted to manage attachment files.");
+  }
+  if (user.role !== "REQUESTER" && user.role !== "IT_STAFF") {
+    throw new HttpError(403, "FORBIDDEN", "Forbidden");
+  }
+  if (Object.prototype.hasOwnProperty.call(req.query, "requesterId")) {
+    throw new HttpError(400, "INVALID_QUERY", "Requester identity comes from the authenticated session.");
+  }
+  return user;
+}
+
 app.get("/api/staff/tickets", asyncRoute(staffQueue));
+app.get("/api/staff/assignees", asyncRoute(getStaffAssignees));
+app.get("/api/staff/tickets/:id", asyncRoute(getStaffTicketDetail));
+app.post("/api/staff/tickets/:id/claim", asyncRoute(claimTicket));
+app.patch("/api/staff/tickets/:id/owner", asyncRoute(updateTicketOwner));
+app.patch("/api/staff/tickets/:id/priority", asyncRoute(updateTicketPriority));
+app.patch("/api/staff/tickets/:id/status", asyncRoute(updateTicketStatus));
+
+app.get("/api/tickets/:id/comments", asyncRoute(getPublicComments));
+app.post("/api/tickets/:id/comments", asyncRoute(createPublicComment));
+app.get("/api/tickets/:id/notes", asyncRoute(getInternalNotes));
+app.post("/api/tickets/:id/notes", asyncRoute(createInternalNote));
+app.post("/api/tickets/:id/resolution-indication", asyncRoute(indicateResolution));
 
 // Ensure upload directory exists
 const uploadDir = path.resolve(process.cwd(), process.env.TEST_UPLOAD_ROOT ?? "uploads/lab-02");
@@ -399,15 +441,21 @@ app.post(
 );
 
 // ---------------------------------------------------------------------------
-// Lab 2 (Issue #4) — Upload Attachment to Ticket
+// Lab 2 & 3 — Upload Attachment to Ticket
 // ---------------------------------------------------------------------------
 app.post(
   "/api/tickets/:id/attachments",
-  requireRequester,
+  (req, _res, next) => {
+    try { requireAttachmentActor(req); next(); }
+    catch (e) { next(e); }
+  },
   asyncRoute(async (req, _res, next) => {
+    const user = requireAttachmentActor(req);
     const id = positiveId(req.params.id, "ticket");
-    const ticket = await getPrisma().ticket.findFirst({ where: { id, requesterId: req.requesterId! }, select: { id: true } });
-    if (!ticket) throw new HttpError(404, "NOT_FOUND", "Ticket not found");
+    const ticket = await getPrisma().ticket.findUnique({ where: { id }, select: { id: true, requesterId: true } });
+    if (!ticket || (user.role === "REQUESTER" && ticket.requesterId !== user.id)) {
+      throw new HttpError(404, "NOT_FOUND", "Ticket not found");
+    }
     next();
   }),
   (req: Request, res: Response, next: NextFunction) => {
@@ -424,9 +472,12 @@ app.post(
       if (!req.file) throw new HttpError(400, "VALIDATION_ERROR", "No file attached in upload request");
       if (!await validAttachment(req.file)) throw new HttpError(400, "UNSUPPORTED_FILE_TYPE", "Unsupported file type or signature.");
       const file = req.file, ticketId = positiveId(req.params.id, "ticket");
+      const user = requireAttachmentActor(req);
       const attachment = await getPrisma().$transaction(async tx => {
         // Serialize count + insert for this ticket, including concurrent fifth/sixth uploads.
-        const rows = await tx.$queryRaw<{ id: number }[]>`SELECT id FROM "Ticket" WHERE id = ${ticketId} AND "requesterId" = ${req.requesterId!} FOR UPDATE`;
+        const rows = user.role === "REQUESTER"
+          ? await tx.$queryRaw<{ id: number }[]>`SELECT id FROM "Ticket" WHERE id = ${ticketId} AND "requesterId" = ${user.id} FOR UPDATE`
+          : await tx.$queryRaw<{ id: number }[]>`SELECT id FROM "Ticket" WHERE id = ${ticketId} FOR UPDATE`;
         if (!rows.length) throw new HttpError(404, "NOT_FOUND", "Ticket not found");
         if (await tx.attachment.count({ where: { ticketId, isRemoved: false } }) >= 5)
           throw new HttpError(400, "ATTACHMENT_LIMIT", "Attachment limit reached: A maximum of 5 active attachments is allowed per ticket");
@@ -442,70 +493,42 @@ app.post(
 );
 
 // ---------------------------------------------------------------------------
-// GET /api/tickets/:id (FR-07 / AC-04 / AC-06)
+// GET /api/tickets/:id (FR-07 / AC-04 / AC-06 / AC-11 / ED-05)
 // ---------------------------------------------------------------------------
 app.get(
   "/api/tickets/:id",
-  requireRequester,
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const requesterId = req.requesterId!;
-      const ticketId = positiveId(req.params.id, "ticket");
+  asyncRoute(async (req: Request, res: Response): Promise<void> => {
+    const user = requireNormal(req);
+    if (Object.prototype.hasOwnProperty.call(req.query, "requesterId")) {
+      throw new HttpError(400, "INVALID_QUERY", "Requester identity comes from the authenticated session.");
+    }
+    const ticketId = positiveId(req.params.id, "ticket");
+    const prisma = getPrisma();
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: ticketDetailInclude,
+    });
 
-      if (isNaN(ticketId) || ticketId <= 0 || ticketId > MAX_INT) {
-        res.status(400).json({ error: "Invalid ticket ID" });
-        return;
-      }
+    if (!ticket) {
+      throw new HttpError(404, "NOT_FOUND", "Ticket not found");
+    }
 
-      const prisma = getPrisma();
-      const ticket = await prisma.ticket.findFirst({
-        where: { id: ticketId, requesterId },
-        include: {
-          category: {
-            select: { id: true, name: true },
-          },
-          relatedSystem: {
-            select: { id: true, name: true },
-          },
-          requester: {
-            select: { id: true, name: true, email: true },
-          },
-          attachments: {
-            select: {
-              id: true,
-              ticketId: true,
-              fileName: true,
-              fileSize: true,
-              mimeType: true,
-              isRemoved: true,
-              removedAt: true,
-              removalReason: true,
-              createdAt: true,
-            },
-            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-          },
-        },
-      });
+    if (user.role === "REQUESTER" && ticket.requesterId !== user.id) {
+      throw new HttpError(404, "NOT_FOUND", "Ticket not found");
+    }
 
-      if (!ticket) {
-        res.status(404).json({ error: "Ticket not found", code: "NOT_FOUND" });
-        return;
-      }
-
-      res.json({ ...ticket, attachmentCount: ticket.attachments.filter(a => !a.isRemoved).length });
-    } catch (err) { next(err); }
-  }
+    res.status(200).json(formatTicketDetail(ticket));
+  })
 );
 
 // ---------------------------------------------------------------------------
-// GET /api/attachments/:id/download (FR-09 / AC-08 / BR-08)
+// GET /api/attachments/:id/download (FR-09 / AC-08 / BR-08 / ED-05)
 // ---------------------------------------------------------------------------
 app.get(
   "/api/attachments/:id/download",
-  requireRequester,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const requesterId = req.requesterId!;
+      const user = requireAttachmentActor(req);
       const attachmentId = positiveId(req.params.id, "attachment");
 
       if (isNaN(attachmentId) || attachmentId <= 0 || attachmentId > MAX_INT) {
@@ -515,7 +538,7 @@ app.get(
 
       const prisma = getPrisma();
       const attachment = await prisma.attachment.findFirst({
-        where: { id: attachmentId, ticket: { requesterId } },
+        where: { id: attachmentId },
         include: {
           ticket: {
             select: {
@@ -526,7 +549,7 @@ app.get(
         },
       });
 
-      if (!attachment) {
+      if (!attachment || (user.role === "REQUESTER" && attachment.ticket.requesterId !== user.id)) {
         res.status(404).json({ error: "Attachment not found", code: "NOT_FOUND" });
         return;
       }
@@ -566,14 +589,13 @@ app.get(
 );
 
 // ---------------------------------------------------------------------------
-// DELETE /api/attachments/:id (FR-10 / AC-08 / BR-08)
+// DELETE /api/attachments/:id (FR-10 / AC-08 / BR-08 / ED-05)
 // ---------------------------------------------------------------------------
 app.delete(
   "/api/attachments/:id",
-  requireRequester,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const requesterId = req.requesterId!;
+      const user = requireAttachmentActor(req);
       const attachmentId = positiveId(req.params.id, "attachment");
 
       if (isNaN(attachmentId) || attachmentId <= 0 || attachmentId > MAX_INT) {
@@ -583,7 +605,7 @@ app.delete(
 
       const prisma = getPrisma();
       const attachment = await prisma.attachment.findFirst({
-        where: { id: attachmentId, ticket: { requesterId } },
+        where: { id: attachmentId },
         include: {
           ticket: {
             select: {
@@ -594,7 +616,7 @@ app.delete(
         },
       });
 
-      if (!attachment) {
+      if (!attachment || (user.role === "REQUESTER" && attachment.ticket.requesterId !== user.id)) {
         res.status(404).json({ error: "Attachment not found", code: "NOT_FOUND" });
         return;
       }
@@ -633,6 +655,7 @@ app.delete(
     } catch (err) { next(err); }
   }
 );
+
 
 app.use(authErrorHandler);
 

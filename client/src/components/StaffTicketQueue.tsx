@@ -22,7 +22,7 @@ const initial = { search: "", status: "", categoryId: "", priority: "", itPriori
 const ownerLabel = (row: StaffTicketRow) => row.owner ? `${row.owner.name} (${row.owner.role === "IT_STAFF" ? "IT Staff" : "Administrator"})${row.owner.isActive ? "" : " — inactive"}` : "Unassigned";
 const updated = (row: StaffTicketRow) => new Date(row.updatedAt).toLocaleString();
 
-export function StaffTicketQueue({ navigationVersion = 0 }: { navigationVersion?: number }) {
+export function StaffTicketQueue({ navigationVersion = 0, onOpenDetail }: { navigationVersion?: number; onOpenDetail?: (ticketId: number) => void }) {
   const [filters, setFilters] = useState(initial), [page, setPage] = useState(1), [refresh, setRefresh] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]), [categoryError, setCategoryError] = useState(false);
   const [result, setResult] = useState<StaffQueueResponse | null>(null), [loading, setLoading] = useState(true), [error, setError] = useState("");
@@ -58,7 +58,10 @@ export function StaffTicketQueue({ navigationVersion = 0 }: { navigationVersion?
     return <label className="form-label mb-0" key={key}>{title}<select className="form-select mt-1" value={filters[key]} onChange={event => change(key, event.target.value)}>
       {all && <option value="">All</option>}{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>;
   }
-  function open(row: StaffTicketRow) { setSelected(row); }
+  function open(row: StaffTicketRow) {
+    if (onOpenDetail) onOpenDetail(row.id);
+    else setSelected(row);
+  }
   const openButton = (row: StaffTicketRow) => <button className="btn btn-outline-success" aria-label={`Open Detail ${row.ticketNumber}`} onClick={() => open(row)}>Open Detail</button>;
 
   if (selected) return <section className="zen-card staff-queue" aria-label="Ticket overview">

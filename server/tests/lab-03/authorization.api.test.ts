@@ -84,13 +84,23 @@ describe("API-05/06/07 Requester role and resource authorization", () => {
     expect(a.body).toEqual(b.body);
     expect(await readdir(process.env.TEST_UPLOAD_ROOT!)).toEqual(before);
   });
-  it.each(["IT_STAFF", "ADMINISTRATOR"] as const)("denies %s every current Requester-only operation regardless of resource existence", async role => {
+  it.each(["IT_STAFF", "ADMINISTRATOR"] as const)("denies %s Requester-only list and create operations", async role => {
     const user = await db.user.findFirstOrThrow({ where: { role, isActive: true } });
+    const headers = await requesterHeaders(user.id);
+    for (const [method, url] of [["get", "/api/tickets"], ["post", "/api/tickets"]] as const) {
+      const denied = await request(app)[method](url).set(headers).send({}).expect(403);
+      expect(denied.body.code).toBe("FORBIDDEN");
+    }
+  });
+  it("denies ADMINISTRATOR attachment file operations regardless of ticket existence", async () => {
+    const user = await db.user.findFirstOrThrow({ where: { role: "ADMINISTRATOR", isActive: true } });
     const headers = await requesterHeaders(user.id), { ticket, attachment } = await fixtures();
     for (const id of [ticket.id, 2147483647]) {
-      for (const [method, url] of [["get", "/api/tickets"], ["post", "/api/tickets"], ["get", `/api/tickets/${id}`],
-        ["post", `/api/tickets/${id}/attachments`], ["get", `/api/attachments/${id === ticket.id ? attachment.id : id}/download`],
-        ["delete", `/api/attachments/${id === ticket.id ? attachment.id : id}`]] as const) {
+      for (const [method, url] of [
+        ["post", `/api/tickets/${id}/attachments`],
+        ["get", `/api/attachments/${id === ticket.id ? attachment.id : id}/download`],
+        ["delete", `/api/attachments/${id === ticket.id ? attachment.id : id}`]
+      ] as const) {
         const denied = await request(app)[method](url).set(headers).send({}).expect(403);
         expect(denied.body.code).toBe("FORBIDDEN");
       }
@@ -109,5 +119,79 @@ describe("API-05/06/07 Requester role and resource authorization", () => {
       const denied = await request(app)[method](url).set(headers).send({}).expect(401);
       expect(denied.body.code).toBe("UNAUTHENTICATED");
     }
+  });
+});
+
+describe("API-26 Administrator capability view and authorization matrix", () => {
+  const db = getPrisma();
+  async function adminFixtures() {
+    const admin = await db.user.findFirstOrThrow({ where: { role: "ADMINISTRATOR", isActive: true } });
+    const staff = await db.user.findFirstOrThrow({ where: { role: "IT_STAFF", isActive: true } });
+    const requester = await db.user.findFirstOrThrow({ where: { role: "REQUESTER", isActive: true } });
+    const ticket = await db.ticket.findFirstOrThrow({ where: { currentStatus: { not: "CANCELLED" } } });
+    const headers = await requesterHeaders(admin.id);
+    return { admin, staff, requester, ticket, headers };
+  }
+
+  it("permits Administrator to read ticket detail, attachment metadata, comments, and notes", async () => {
+    const { ticket, headers } = await adminFixtures();
+    // Detail read via GET /api/tickets/:id
+    const detail = await request(app).get(`/api/tickets/${ticket.id}`).set(headers).expect(200);
+    expect(detail.body.id).toBe(ticket.id);
+    expect(Array.isArray(detail.body.attachments)).toBe(true);
+    expect(detail.body.attachments.every((a: any) => typeof a.storedPath === "undefined")).toBe(true);
+
+    // Comments read via GET /api/tickets/:id/comments
+    const comments = await request(app).get(`/api/tickets/${ticket.id}/comments`).set(headers).expect(200);
+    expect(Array.isArray(comments.body.data)).toBe(true);
+
+    // Notes read via GET /api/tickets/:id/notes
+    const notes = await request(app).get(`/api/tickets/${ticket.id}/notes`).set(headers).expect(200);
+    expect(Array.isArray(notes.body.data)).toBe(true);
+  });
+
+  it("permits Administrator to update IT Priority without modifying requestedPriority", async () => {
+    const { ticket, headers } = await adminFixtures();
+    const originalRequested = ticket.requestedPriority;
+    const targetItPriority = ticket.itPriority === "CRITICAL" ? "LOW" : "CRITICAL";
+
+    const updated = await request(app)
+      .patch(`/api/staff/tickets/${ticket.id}/priority`)
+      .set(headers)
+      .send({ itPriority: targetItPriority })
+      .expect(200);
+
+    expect(updated.body.itPriority).toBe(targetItPriority);
+    expect(updated.body.requestedPriority).toBe(originalRequested);
+
+    // Verify in database
+    const inDb = await db.ticket.findUniqueOrThrow({ where: { id: ticket.id } });
+    expect(inDb.itPriority).toBe(targetItPriority);
+    expect(inDb.requestedPriority).toBe(originalRequested);
+  });
+
+  it("denies Administrator all operational staff mutations and posting operations", async () => {
+    const { ticket, headers } = await adminFixtures();
+
+    // Staff queue
+    await request(app).get("/api/staff/tickets").set(headers).expect(403);
+    // Assignees lookup
+    await request(app).get("/api/staff/assignees").set(headers).expect(403);
+    // Staff ticket detail alias
+    await request(app).get(`/api/staff/tickets/${ticket.id}`).set(headers).expect(403);
+    // Claim
+    await request(app).post(`/api/staff/tickets/${ticket.id}/claim`).set(headers).send({}).expect(403);
+    // Reassign
+    await request(app).patch(`/api/staff/tickets/${ticket.id}/owner`).set(headers).send({ ownerId: null }).expect(403);
+    // Status change
+    await request(app).patch(`/api/staff/tickets/${ticket.id}/status`).set(headers).send({ currentStatus: "IN_PROGRESS" }).expect(403);
+    // Public comment post
+    await request(app).post(`/api/tickets/${ticket.id}/comments`).set(headers).send({ body: "Admin comment" }).expect(403);
+    // Internal note post
+    await request(app).post(`/api/tickets/${ticket.id}/notes`).set(headers).send({ body: "Admin note" }).expect(403);
+    // Resolution indication
+    await request(app).post(`/api/tickets/${ticket.id}/resolution-indication`).set(headers).send({}).expect(403);
+    // Attachment operations
+    await request(app).post(`/api/tickets/${ticket.id}/attachments`).set(headers).attach("file", Buffer.from("%PDF-1.4 admin"), "admin.pdf").expect(403);
   });
 });

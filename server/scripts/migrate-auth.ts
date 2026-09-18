@@ -9,7 +9,6 @@ import { prepareInitialPassword, terminalHandover, type Handover } from "./initi
 export { terminalHandover, type Handover } from "./initial-credentials.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const finalMigration = "20260915000200_auth_required_credentials";
 export async function provisionUsers(db: PrismaClient, handover: Handover) {
   // Raw projection deliberately tolerates temporary NULL hashes before final constraints.
   const users = await db.$queryRaw<{ id: number; email: string; emailNormalized: string | null; passwordHash: string | null }[]>
@@ -57,7 +56,8 @@ export async function migrateAuth(databaseUrl: string, handover: Handover) {
     }
     await deployThrough(databaseUrl, "20260915000100_auth_expand");
     await provisionUsers(db, handover);
-    await deployThrough(databaseUrl, finalMigration);
+    // Credential constraints and subsequent additive migrations run only after provisioning.
+    await deployThrough(databaseUrl);
   } finally { await db.$disconnect(); }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

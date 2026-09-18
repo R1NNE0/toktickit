@@ -163,13 +163,15 @@ body {
   border: 1px solid rgba(0, 107, 60, 0.25);
 }
 
-.badge-status-open {
+.badge-status-open,
+.badge-status-reopened {
   background-color: #e0f2fe;
   color: #0369a1;
   border: 1px solid #bae6fd;
 }
 
-.badge-status-in-progress {
+.badge-status-in-progress,
+.badge-status-waiting-for-requester {
   background-color: var(--warning-light);
   color: var(--warning-amber);
   border: 1px solid #fde68a;
@@ -181,7 +183,8 @@ body {
   border: 1px solid #bbf7d0;
 }
 
-.badge-status-closed {
+.badge-status-closed,
+.badge-status-cancelled {
   background-color: #f3f4f6;
   color: #4b5563;
   border: 1px solid #e5e7eb;
@@ -327,10 +330,36 @@ body {
 }
 /* The same Requester destinations remain keyboard-accessible on small screens. */
 .requester-menu-toggle { display: none; }
+.staff-queue { overflow-wrap: anywhere; }
+.staff-queue button, .staff-queue input, .staff-queue select { min-height: 44px; }
+.queue-filter-toggle { display: none; }
+.queue-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.queue-table { table-layout: fixed; }
+.queue-table th { white-space: normal; }
+.queue-table th:first-child { width: 24%; }
+.queue-table th:nth-child(2) { width: 12%; }
+.queue-table th:nth-child(3) { width: 14%; }
+.queue-table th:nth-child(4) { width: 18%; }
+.queue-table th:nth-child(5) { width: 14%; }
+.queue-table th:last-child { width: 18%; }
+.queue-table .badge-status {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+  max-width: 100%;
+}
+.queue-card-metadata { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1rem; }
+@media (min-width: 768px) and (max-width: 991px) {
+  .queue-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 767px) {
+  .queue-filter-toggle { display: inline-block; }
+  .queue-filters { display: none; }
+  .queue-filters.is-open { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .queue-card-metadata { grid-template-columns: minmax(0, 1fr); }
+  .queue-cards .btn { width: 100%; }
   .requester-menu-toggle { display: inline-block; min-height: 44px; }
   .requester-navigation { display: none !important; width: 100%; }
   .requester-navigation.is-open { display: flex !important; flex-wrap: wrap; }
   .requester-navigation button { min-height: 44px; }
 }
-

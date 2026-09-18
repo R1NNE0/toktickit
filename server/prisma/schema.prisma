@@ -25,8 +25,11 @@ enum TicketStatus {
   NEW
   OPEN
   IN_PROGRESS
+  WAITING_FOR_REQUESTER
   RESOLVED
   CLOSED
+  REOPENED
+  CANCELLED
 }
 
 // ---------------------------------------------------------------------------
@@ -52,7 +55,8 @@ model User {
   mustChangePassword Boolean @default(true)
   passwordChangedAt DateTime?
 
-  tickets Ticket[]
+  tickets Ticket[] @relation("TicketRequester")
+  ownedTickets Ticket[] @relation("TicketOwner")
   sessions Session[]
 
   @@map("RequesterUser")
@@ -99,7 +103,9 @@ model Ticket {
   currentStatus     TicketStatus @default(NEW)
 
   requesterId     Int
-  requester       User @relation(fields: [requesterId], references: [id])
+  requester       User @relation("TicketRequester", fields: [requesterId], references: [id])
+  ownerId         Int?
+  owner           User? @relation("TicketOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   categoryId      Int
   category        Category      @relation(fields: [categoryId], references: [id])
   relatedSystemId Int

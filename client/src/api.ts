@@ -24,7 +24,7 @@ export interface HealthResponse {
 }
 
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-export type TicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+export type TicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "WAITING_FOR_REQUESTER" | "RESOLVED" | "CLOSED" | "REOPENED" | "CANCELLED";
 
 export interface Attachment {
   id: number;
@@ -91,6 +91,38 @@ export interface PaginationMeta {
 export interface PaginatedTicketsResponse {
   data: Ticket[];
   pagination: PaginationMeta;
+}
+
+export interface StaffTicketRow extends Ticket {
+  requester: { id: number; name: string; email: string };
+  ownerId: number | null;
+  owner: { id: number; name: string; role: "IT_STAFF" | "ADMINISTRATOR"; isActive: boolean } | null;
+  category: { id: number; name: string };
+  relatedSystem: { id: number; name: string };
+  attachmentCount: number;
+  resolutionSuggestedAt: string | null;
+  resolutionSuggestedById: number | null;
+}
+export interface StaffQueueParams extends GetTicketsParams {
+  itPriority?: string;
+  ownerId?: number | "unassigned";
+}
+export interface StaffQueueResponse { data: StaffTicketRow[]; pagination: PaginationMeta; }
+export class QueueError extends Error {
+  constructor(public status: number) {
+    super(status === 403 ? "Access denied. Ticket Queue is available to IT Staff only."
+      : status === 400 ? "Invalid queue filters. Check your query and try again."
+      : "Unable to load the Ticket Queue. Please try again.");
+  }
+}
+export async function getStaffTickets(params: StaffQueueParams, signal?: AbortSignal): Promise<StaffQueueResponse> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "" && value !== "ALL") query.set(key, String(value));
+  }
+  const res = await authFetch(`/api/staff/tickets?${query}`, { signal });
+  if (!res.ok) throw new QueueError(res.status);
+  return res.json();
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import { MyTickets } from "./components/MyTickets.js";
 import { TicketDetail } from "./components/TicketDetail.js";
 import { StaffTicketQueue } from "./components/StaffTicketQueue.js";
 import { StaffTicketDetail } from "./components/StaffTicketDetail.js";
+import { UserManagement } from "./components/UserManagement.js";
 import { checkSystem, Category } from "./api.js";
 
 type UiState = "idle" | "loading" | "success" | "error";
@@ -123,10 +124,7 @@ function MainContent() {
                 }}
               />
             ) : (
-              <div className="zen-card">
-                <h1 className="h4 fw-bold mb-1">Welcome, {auth.user.name}</h1>
-                <p className="text-muted mb-0">Signed in as Administrator.</p>
-              </div>
+              <UserManagement />
             )
           )
           : currentRequester && (

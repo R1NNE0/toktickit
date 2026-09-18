@@ -25,6 +25,11 @@ export function Header({ activeTab = "my-tickets", onNavigate, onChangePassword 
         <button type="button" className="zen-nav-pill border-0 active" aria-current="page"
           onClick={() => { onNavigate?.("staff-queue"); setMenuOpen(false); }}>Ticket Queue</button>
       </nav></>}
+    {user?.role === "ADMINISTRATOR" && !user.mustChangePassword && <><button className="btn btn-light requester-menu-toggle" aria-expanded={menuOpen} aria-controls="admin-navigation" onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
+      <nav id="admin-navigation" className={"d-flex gap-2 requester-navigation " + (menuOpen ? "is-open" : "")} aria-label="Administrator">
+        <button type="button" className="zen-nav-pill border-0 active" aria-current="page"
+          onClick={() => { onNavigate?.("user-management"); setMenuOpen(false); }}>User Management</button>
+      </nav></>}
     {user && <div className="d-flex flex-wrap align-items-center gap-2">
       <span>{user.name} · {user.role === "IT_STAFF" ? "IT Staff" : user.role === "ADMINISTRATOR" ? "Administrator" : "Requester"}</span>
       {!user.mustChangePassword && <button type="button" className="btn btn-sm btn-light" onClick={onChangePassword}>Change password</button>}

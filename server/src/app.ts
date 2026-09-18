@@ -28,6 +28,12 @@ import {
   createInternalNote,
   indicateResolution,
 } from "./commentsNotes.js";
+import {
+  getAdminUsers,
+  createAdminUser,
+  updateAdminUser,
+  resetAdminUserInitialPassword,
+} from "./adminUsers.js";
 
 // The Express app is exported separately from app.listen() (see index.ts) so
 // Supertest can import `app` without opening a port. Do not merge these files.
@@ -45,7 +51,7 @@ app.use("/api", (req, res, next) => {
     next();
   } catch (error) { next(error); }
 });
-app.use(["/api/tickets", "/api/attachments", "/api/staff"], (req, res, next) => {
+app.use(["/api/tickets", "/api/attachments", "/api/staff", "/api/admin"], (req, res, next) => {
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) auth.mutation(req, res, next);
   else next();
 });
@@ -80,6 +86,11 @@ app.post("/api/tickets/:id/comments", asyncRoute(createPublicComment));
 app.get("/api/tickets/:id/notes", asyncRoute(getInternalNotes));
 app.post("/api/tickets/:id/notes", asyncRoute(createInternalNote));
 app.post("/api/tickets/:id/resolution-indication", asyncRoute(indicateResolution));
+
+app.get("/api/admin/users", asyncRoute(getAdminUsers));
+app.post("/api/admin/users", asyncRoute(createAdminUser));
+app.patch("/api/admin/users/:id", asyncRoute(updateAdminUser));
+app.post("/api/admin/users/:id/initial-password", asyncRoute(resetAdminUserInitialPassword));
 
 // Ensure upload directory exists
 const uploadDir = path.resolve(process.cwd(), process.env.TEST_UPLOAD_ROOT ?? "uploads/lab-02");

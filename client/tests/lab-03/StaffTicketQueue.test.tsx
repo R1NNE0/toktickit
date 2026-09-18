@@ -131,7 +131,8 @@ describe("UI-07 Staff Queue", () => {
     expect(screen.getByRole("button", { name: "Create Ticket" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ticket Queue" })).not.toBeInTheDocument();
     auth.user.role = "ADMINISTRATOR"; view.rerender(<Header />);
-    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "IT Staff" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ticket Queue" })).not.toBeInTheDocument();
     auth.user.role = "IT_STAFF"; auth.user.mustChangePassword = true; view.rerender(<Header />);
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });

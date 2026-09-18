@@ -480,3 +480,70 @@ export async function indicateResolution(ticketId: number): Promise<ResolutionIn
   });
   return handleApiResponse<ResolutionIndicationResponse>(res, "Failed to indicate resolution");
 }
+
+export type UserRole = "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR";
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAdminUserData {
+  name: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  initialPassword: string;
+}
+
+export interface UpdateAdminUserData {
+  name?: string;
+  email?: string;
+  role?: UserRole;
+  isActive?: boolean;
+}
+
+export async function getAdminUsers(
+  params?: { search?: string; role?: UserRole },
+  signal?: AbortSignal
+): Promise<{ data: AdminUser[] }> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.role) query.set("role", params.role);
+  const qs = query.toString();
+  const res = await authFetch(`/api/admin/users${qs ? `?${qs}` : ""}`, { signal });
+  return handleApiResponse<{ data: AdminUser[] }>(res, "Failed to fetch users");
+}
+
+export async function createAdminUser(data: CreateAdminUserData): Promise<AdminUser> {
+  const res = await authFetch("/api/admin/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return handleApiResponse<AdminUser>(res, "Failed to create user");
+}
+
+export async function updateAdminUser(id: number, data: UpdateAdminUserData): Promise<AdminUser> {
+  const res = await authFetch(`/api/admin/users/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return handleApiResponse<AdminUser>(res, "Failed to update user");
+}
+
+export async function resetAdminUserInitialPassword(id: number, initialPassword: string): Promise<AdminUser> {
+  const res = await authFetch(`/api/admin/users/${id}/initial-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ initialPassword }),
+  });
+  return handleApiResponse<AdminUser>(res, "Failed to reset initial password");
+}

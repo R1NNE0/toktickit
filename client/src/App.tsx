@@ -99,20 +99,21 @@ function MainContent() {
               onSubmit={async body => { await auth.changePassword(body); setChangingPassword(false); }}
               onCancel={() => setChangingPassword(false)} />
           : auth.user.role === "IT_STAFF" ? (
-            selectedTicketId ? (
+            <>
+              <div hidden={selectedTicketId !== null}>
+                <StaffTicketQueue navigationVersion={queueNavigation} onOpenDetail={setSelectedTicketId} />
+              </div>
+            {selectedTicketId && (
               <StaffTicketDetail
                 ticketId={selectedTicketId}
                 onBack={() => {
                   setSelectedTicketId(null);
+                  setQueueNavigation(value => value + 1);
                   if (window.location.hash.startsWith("#/tickets/")) window.location.hash = "";
                 }}
               />
-            ) : (
-              <StaffTicketQueue
-                navigationVersion={queueNavigation}
-                onOpenDetail={id => setSelectedTicketId(id)}
-              />
-            )
+            )}
+            </>
           )
           : auth.user.role !== "REQUESTER" ? (
             selectedTicketId ? (

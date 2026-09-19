@@ -69,14 +69,14 @@ describe("Lab 2 (Issue #4) - POST /api/tickets & Attachment Upload", () => {
 
   describe("POST /api/tickets (Create Ticket)", () => {
     it.each(["LOW", "MEDIUM", "HIGH", "CRITICAL"])("copies %s into new IT Priority without changing historical priorities (API-08)", async priority => {
-      const historical = await prisma.ticket.findMany({ select: { id: true, itPriority: true } });
+      const historical = await prisma.ticket.findMany({ select: { id: true, itPriority: true }, orderBy: { id: "asc" } });
       const res = await request(app).post("/api/tickets").set(await requesterHeaders(activeRequesterId)).send({
         summary: "Priority continuity", description: "Keep existing priority values", categoryId: activeCategoryId,
         relatedSystemId: activeRelatedSystemId, requestedPriority: priority,
       }).expect(201);
       expect(res.body.requestedPriority).toBe(priority); expect(res.body.itPriority).toBe(priority);
       expect(res.body.attachments).toEqual([]);
-      expect(await prisma.ticket.findMany({ where: { id: { in: historical.map(t => t.id) } }, select: { id: true, itPriority: true } })).toEqual(historical);
+      expect(await prisma.ticket.findMany({ where: { id: { in: historical.map(t => t.id) } }, select: { id: true, itPriority: true }, orderBy: { id: "asc" } })).toEqual(historical);
     });
     it("converges concurrent same-key submissions while keeping keys requester-scoped (API-08)", async () => {
       const payload = { summary: "Concurrent retry", description: "One ticket per requester/key", categoryId: activeCategoryId,

@@ -7,13 +7,18 @@ export function ChangePassword({ mandatory, onSubmit, onCancel }: {
 }) {
   const [values, setValues] = useState(empty), [busy, setBusy] = useState(false), [error, setError] = useState("");
   const submitting = useRef(false);
+  const fields = useRef<Partial<Record<keyof PasswordChange, HTMLInputElement | null>>>({});
+  const [invalid, setInvalid] = useState<keyof PasswordChange | null>(null);
+  function invalidate(field: keyof PasswordChange, message: string) {
+    setInvalid(field); setError(message); fields.current[field]?.focus();
+  }
   async function submit(e: FormEvent) {
     e.preventDefault(); if (submitting.current) return;
     const length = [...values.newPassword].length;
     if (!values.currentPassword || length < 15 || length > 128 || denied.has(values.newPassword.toLowerCase())
-      || values.currentPassword === values.newPassword) { setError("Use 15–128 characters and a new, less common password."); return; }
-    if (values.newPassword !== values.confirmPassword) { setError("The new passwords must match."); return; }
-    submitting.current = true; setBusy(true); setError("");
+      || values.currentPassword === values.newPassword) { invalidate(!values.currentPassword ? "currentPassword" : "newPassword", "Use 15–128 characters and a new, less common password."); return; }
+    if (values.newPassword !== values.confirmPassword) { invalidate("confirmPassword", "The new passwords must match."); return; }
+    submitting.current = true; setBusy(true); setError(""); setInvalid(null);
     try { await onSubmit(values); setValues(empty); }
     catch (e) { setError(e instanceof Error ? e.message : "Unable to change password. Please retry."); }
     finally { submitting.current = false; setBusy(false); }
@@ -25,11 +30,12 @@ export function ChangePassword({ mandatory, onSubmit, onCancel }: {
     <form onSubmit={submit} noValidate>
       {([["currentPassword", "Current password"], ["newPassword", "New password"], ["confirmPassword", "Confirm new password"]] as const).map(([key, label]) =>
         <div className="mb-3" key={key}><label className="form-label" htmlFor={key}>{label}</label>
-          <input id={key} className="form-control" type="password" aria-describedby="password-rules"
+          <input id={key} className="form-control" type="password" required ref={element => { fields.current[key] = element; }}
+            aria-invalid={invalid === key} aria-describedby={invalid === key ? "password-rules password-error" : "password-rules"}
             autoComplete={key === "currentPassword" ? "current-password" : "new-password"}
             value={values[key]} disabled={busy} onChange={e => setValues({ ...values, [key]: e.target.value })} />
         </div>)}
-      {error && <p className="alert alert-danger" role="alert">{error}</p>}
+      {error && <p className="alert alert-danger" role="alert" id="password-error">{error}</p>}
       <button className="btn btn-zen-primary" disabled={busy}>{busy ? "Saving..." : "Save password"}</button>
       {!mandatory && <button className="btn btn-outline-secondary ms-2" type="button" disabled={busy} onClick={onCancel}>Cancel</button>}
     </form>

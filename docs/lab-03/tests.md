@@ -1,16 +1,16 @@
 # Lab 3 Test Plan, Traceability and Evidence
 
 Status: **Engineering decisions approved through Phase 2.2; tests Planned / Not Run — no Lab 3 implementation or execution.**
-Prepared: 2026-09-15 against `main` at `8fb7e8c`. Source: [specification.md](specification.md), [API](api-spec.md), [UI](ui-spec.md). All paths below are planned unless explicitly identified as existing Lab 1/2 files. A planned test row can expand into several parameterized cases; row counts are not passed-test counts.
+Prepared: 2026-09-15 against `main` at `8fb7e8c`. Source: [specification.md](specification.md), [API](api-spec.md), [UI](ui-spec.md). The tables in ?2 preserve the Phase 2 coverage plan and its historical planning status; they are not current execution results. ?9 maps the implemented Issue #35 suites and records observed counts. A planned row can expand into several cases; row counts are not passed-test counts.
 
 ## 1. Strategy and execution safety
 
 Use Vitest for units/API/UI, Supertest authenticated cookie agents for API integration, React Testing Library/userEvent for components, and Playwright for real browser E2E/responsive captures. Write failing cases from the approved contract before implementing each Issue; record the reason for failure, then evidence of passing behavior. Do not postpone all tests to release work or weaken ownership assertions to retain an old test count.
 
-Before any future execution:
+For every execution:
 
 - Require a dedicated test PostgreSQL database and a separate test upload root. Validate configuration before importing app code, running migrations, fixtures or cleanup. Do not run existing write-heavy tests against the ordinary development DATABASE_URL or uploads/lab-02.
-- Plan app/test setup to inject the upload root and isolate fixtures; existing app import can create its upload directory. Test configuration and fixtures are future implementation, not created here.
+- Plan app/test setup to inject the upload root and isolate fixtures; existing app import can create its upload directory. The implemented setup validates the disposable database/upload root before app imports and resets; the browser launcher reuses that guard.
 - Cover two Requesters, active/inactive accounts, two active Administrators for concurrent safety tests, active/inactive Staff, an Administrator assignment candidate, all eight statuses, assigned/unassigned tickets, multiple pages, valid/invalid files and removed metadata.
 - Use isolated transaction/fixture boundaries and deterministic cleanup. Existing test files run sequentially; keep that until isolation is demonstrated. Reset/cleanup only the positively identified test environment.
 - Use real password hashing/session cookies/CSRF for security integration; mocks are appropriate for isolated UI states, not substitutes for authorization proof. Use controlled clocks for expiry/rate windows and concurrent requests for races.
@@ -22,7 +22,7 @@ Phase 2.2 concurrency scope: test only the correctness invariants in BR-17/25 an
 
 ### Unit tests
 
-| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Final Status |
+| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Phase 2 status |
 |---|---|---|---|---|---|---|
 | UNIT-01 | Unit | FR-01, FR-02; BR-08; AC-01, AC-02 | Argon2 hash/verify, salt variation, wrong password, 14/15/128/129 code points, Unicode/spaces, denylist and reuse | Valid boundaries accepted; invalid/reused rejected; no plaintext hash | `server/tests/lab-03/password.unit.test.ts` | Planned / Not Run |
 | UNIT-02 | Unit | FR-03; BR-09, BR-10, BR-11; AC-03, AC-25 | Session expiry boundaries, random token hashing, CSRF comparison/rotation | Idle/absolute limits enforced before touch; old tokens fail | `server/tests/lab-03/session.unit.test.ts` | Planned / Not Run |
@@ -33,7 +33,7 @@ Phase 2.2 concurrency scope: test only the correctness invariants in BR-17/25 an
 
 ### API, integration and security tests
 
-| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Final Status |
+| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Phase 2 status |
 |---|---|---|---|---|---|---|
 | API-01 | API | FR-01; BR-01, BR-08, BR-12; AC-01 | Valid, unknown-email, wrong-password and inactive login | 200 for valid; same safe 401/body for credential failures; no hashes/secrets | `server/tests/lab-03/auth.api.test.ts` | Planned / Not Run |
 | API-02 | API | FR-02; BR-02, BR-08; AC-02 | Initial-password login; restricted-session GET me/CSRF, POST password-change/logout; re-login with valid same-account or other-account credentials and valid Origin/CSRF; invalid/current/reused/mismatched passwords; successful change | Initial login 200 creates restricted session; me/CSRF 200; normal APIs and re-login 403 PASSWORD_CHANGE_REQUIRED with identity/session unchanged; invalid password change 400 stays restricted; valid change 200 rotates to normal and revokes old sessions; restricted logout 204 revokes access | `server/tests/lab-03/auth.api.test.ts` | Planned / Not Run |
@@ -64,7 +64,7 @@ Phase 2.2 concurrency scope: test only the correctness invariants in BR-17/25 an
 
 ### Migration and seed tests
 
-| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Final Status |
+| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Phase 2 status |
 |---|---|---|---|---|---|---|
 | MIG-01 | Migration | FR-17; BR-29; AC-20 | Upgrade populated Lab 2 including non-seeded/inactive users, ticket fields/FKs and attachment metadata/file hashes | IDs/relationships/counts/content/bytes preserved; hashes provisioned once; sequence still generates unique IDs | `server/tests/lab-03/migration-regression.test.ts` | Planned / Not Run |
 | MIG-02 | Migration | FR-17; BR-07, BR-08, BR-29; AC-20 | Normalized-email collision, unprovisioned login, final constraints and migration reattempt | Fail safely without merging/deleting; unprovisioned denied; no plaintext SQL; final required fields valid | `server/tests/lab-03/migration-regression.test.ts` | Planned / Not Run |
@@ -75,7 +75,7 @@ Phase 2.2 concurrency scope: test only the correctness invariants in BR-17/25 an
 
 Use one canonical directory for new tests: `client/tests/lab-03/`. Adapt existing suites explicitly; do not silently duplicate them again.
 
-| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Final Status |
+| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Phase 2 status |
 |---|---|---|---|---|---|---|
 | UI-01 | Component | FR-01; BR-01, BR-12, BR-30; AC-01, AC-22 | Login fields/labels, validation, busy, safe credential/inactive/throttle/network feedback | No registration/identity selector, no duplicate submit or secret storage | `client/tests/lab-03/Login.test.tsx` | Planned / Not Run |
 | UI-02 | Component | FR-02; BR-02, BR-08; AC-02, AC-22 | Mandatory/voluntary password rules, current/new/confirm, saving/errors/success | Mandatory screen cannot be bypassed; successful rotation enters role home; passwords cleared appropriately | `client/tests/lab-03/ChangePassword.test.tsx` | Planned / Not Run |
@@ -92,7 +92,7 @@ Use one canonical directory for new tests: `client/tests/lab-03/`. Adapt existin
 
 ### Style, responsive and browser E2E
 
-| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Final Status |
+| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Phase 2 status |
 |---|---|---|---|---|---|---|
 | STYLE-01 | UI style | FR-19; BR-30; AC-23 | Tokens/classes, labels/required markers, editable/read-only, busy/invalid, full status/role/priority labels | Existing Zen Green semantics preserved; no color-only meaning | `client/tests/lab-03/ZenGreen.test.tsx` | Planned / Not Run |
 | RESP-01 | Browser responsive | FR-19; BR-30; AC-23 | All required screens at 1280x800, 768x1024, 375x812; long text/files/emails; breakpoint edges | No page overflow/clipping/overlap; usable menu/forms/table/cards/dialogs; actual screenshots | `e2e/lab-03/responsive.spec.ts` | Planned / Not Run |
@@ -105,7 +105,7 @@ Use one canonical directory for new tests: `client/tests/lab-03/`. Adapt existin
 
 ### Engineering and visual evidence (manual, not fictional automation)
 
-| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Final Status |
+| Test ID | Type | Requirement/AC | What It Tests | Expected Result | Automated Test File | Phase 2 status |
 |---|---|---|---|---|---|---|
 | EVID-01 | Contract review | FR-20; AC-26 | Complete FR/BR/AC-to-test mapping, source precedence and approved EDs | Human approval recorded before implementation; no unsupported completeness claims | N/A — human review of four contract files | Planned / Not Run |
 | EVID-02 | Visual review | FR-19; BR-30; AC-23 | Inspect actual responsive screenshots against ui-spec.md checklist and sample illustrations | Human verifies readability, focus, clipping and semantic consistency; link captures/commit | N/A — screenshot review record in this file | Planned / Not Run |
@@ -144,7 +144,7 @@ Use one canonical directory for new tests: `client/tests/lab-03/`. Adapt existin
 
 ## 4. Existing Lab 1–2 test treatment
 
-Baseline declarations: 49 backend tests in eight files, 32 frontend tests in seven files. README's pass badge is historical; none were executed in this phase. `server/tests/lab-02/e2e-flow.test.ts` is a Supertest flow, not browser E2E.
+Baseline declarations: 49 backend tests in eight files, 32 frontend tests in seven files. README's pass badge is historical; current regression runs are recorded in ?9. `server/tests/lab-02/e2e-flow.test.ts` is a Supertest flow, not browser E2E.
 
 - Retain Lab 1 health/category tests and diagnostic App behavior; adapt wrapper/bootstrap mocks only as necessary.
 - Adapt `tickets.create.test.ts`, `tickets.list.test.ts`, `tickets.detail.test.ts`, and `e2e-flow.test.ts` to authenticated Supertest agents, CSRF and mapped `prisma.user`. Preserve validation/isolation/idempotency/file assertions; update initial IT Priority and safe cross-owner 404 expectations explicitly.
@@ -155,19 +155,19 @@ Baseline declarations: 49 backend tests in eight files, 32 frontend tests in sev
 
 ## 5. Planned commands and evidence capture
 
-Only after test environment isolation and later implementation authorization, intended suite entrypoints are `npm --prefix server test` and `npm --prefix client test`. The exact Playwright runner command/configuration, database preparation/provisioning command and environment overrides must be added when implemented. No test, install, build, migration or database command ran during this drafting phase.
+The implemented suite entrypoints are `npm --prefix server test`, `npm --prefix client test` and `npm --prefix e2e test`. See ?9 for the isolated database configuration, prerequisites, exact executed commands and observed results. No tests ran during the original Phase 2 drafting phase.
 
 For each actual run record tested commit/branch, environment versions, exact command, fixture/database isolation, start time, complete output, pass/fail/skip totals and artifact paths. Run appropriate failing/passing tests within each feature Issue; broaden at integration/release. Final results must be obtained from the final main revision, not a stale feature branch.
 
-Product verification covers behavioral assertions for FR-01–19, BR-01–30 and AC-01–25. Screenshot capture/submitted visual-review artifacts (including the evidence portions of RESP-01/EVID-02), peer approvals, staged history, final-main outputs and submission evidence belong to FR-20/AC-26 delivery checks. An AC-23 link to EVID-02 provides supplementary delivery evidence; it does not make screenshots a product-completion prerequisite. All tests/checks remain unexecuted.
+Product verification covers behavioral assertions for FR-01–19, BR-01–30 and AC-01–25. Screenshot capture/submitted visual-review artifacts (including the evidence portions of RESP-01/EVID-02), peer approvals, staged history, final-main outputs and submission evidence belong to FR-20/AC-26 delivery checks. An AC-23 link to EVID-02 provides supplementary delivery evidence; it does not make screenshots a product-completion prerequisite. Current feature-branch verification is recorded in ?9; it is not final-main or submission evidence.
 
 ## 6. Final results and responsive evidence
 
 | Evidence | Current result |
 |---|---|
-| Unit/API/component/security/migration/browser tests | Planned / Not Run |
+| Unit/API/component/security/migration/browser tests | Current workspace runs in ?9; final-main verification remains pending |
 | Required screenshots and visual review | Planned / Not Run |
-| Human engineering-decision approval | ED-01–10 approved by user through Phases 2.1/2.2 on 2026-09-15; documentation checked, application tests unexecuted |
+| Human engineering-decision approval | ED-01–10 approved by user through Phases 2.1/2.2 on 2026-09-15; approval is unchanged; application execution is recorded separately in ?9 |
 | GitHub Issues/PRs/peer approvals/staged release | Not created in this phase |
 | Final-main test commit and complete logs | TODO |
 
@@ -176,8 +176,8 @@ Screenshot locations and viewports are defined in ui-spec.md §10. Later record 
 ## 7. Known limits and open verification facts
 
 - The Phase 2.1 authorization matrix is approved (ED-05): read-only permitted Ticket Detail/metadata, required comment/note visibility and owner eligibility, separate IT Priority updates on accessible tickets without an owner-only restriction, and the stated operational denials. Phase 2.2 approves all remaining EDs, default page size 10, and targeted correctness safeguards without broad optimistic locking. No unresolved engineering-policy decision currently blocks implementation.
-- Actual legacy normalized-email collisions, files present on disk, provisioning handover and migration success are unknown until isolated preflight.
-- Session/password dependency versions and Windows compatibility are unverified; package installation is outside this phase.
+- Migration/provisioning tests use synthetic legacy records and files. They do not certify the contents or readiness of an arbitrary deployment database.
+- Local Windows tooling and installed dependency versions are exercised by the runs in ?9; other browsers/platforms are not certified by the Chromium run.
 - Live peer assignments, branch protections, Issue numbers and PR approvals are unverified; record actual facts later.
 - No required test may be marked Pass based only on a document, mock that bypasses the relevant layer, or an agent claim.
 
@@ -199,3 +199,59 @@ Planning IDs below are not GitHub Issue numbers. All future feature PRs target l
 P1 contributes only the approved planning/traceability evidence (EVID-01) to AC-26; it does not require completed application tests, screenshots, peer-release evidence or final-main/submission artifacts. P8 assembles and verifies full AC-26 delivery evidence using P7 results. P3 prepares shared Requester detail/attachment behavior; its new communication controls are completed in P5, so UI-06's communication assertions belong to P5 and must not block unrelated P3 attachment evidence. P2 must not claim the final old-selector removal regression (MIG-03/UI-03) complete before P3; P5 completes Administrator comment/note visibility and IT Priority editing with explicit optional-capability denials (API-26/UI-12); P7 runs E2E-05. Authorization matrix cases are added with each endpoint and fully exercised in P7. Required cross-feature scenarios are planned now and run when their dependencies exist; do not mark unimplemented cases passed or skip them to declare completion early.
 
 Board transitions: Backlog (identified) -> Specified (understood, AC/tests/dependencies approved) -> Started (active feature work) -> PR Review (reviewable PR/checks) -> Fixing if requested -> PR Review again -> Done (ACs met, checks pass, peer approves, merged to staging). P8 additionally requires reviewed staging-to-main release and final-main evidence. No direct commits on staging/main. Record received peer approval and the student's actual reviews/comments/approvals on the assigned peer's PRs in reviewer.md; a staged merge alone is not peer-review evidence.
+
+## 9. Issue #35 integrated verification ? current workspace
+
+This is feature-branch verification on `feat/lab3-integration-e2e`, not Issue #36 release packaging, peer approval or final-main evidence. Existing authorization decisions, statuses, server behavior, schema, migrations and seed logic are unchanged.
+
+### Implemented coverage
+
+| Area / planned IDs | Implemented verification |
+|---|---|
+| Auth/session: API-01?05, E2E-01 | `authentication.spec.ts` covers initial restricted login, denied re-login, mandatory change, reload, logout and browser back/direct API after logout; `auth.api.test.ts`, `session.unit.test.ts` and `auth-concurrency.api.test.ts` retain expiry, CSRF, throttle and logout-race checks. |
+| Cross-role: API-04?07/26 | New `server/tests/lab-03/integration.api.test.ts` uses real login cookies across all 22 implemented business method/path combinations: role denials, anonymous legacy headers, restricted/inactive/expired/revoked sessions and mutation CSRF. Its connected flow verifies note isolation, Administrator reads/priority and role-change revocation. Existing authorization and resource suites cover real/absent/cross-owner records. |
+| Requester/attachments: E2E-04, API-08?11, UI-04?06 | `requester-regression.spec.ts`: real create/list/detail, upload/download byte equality and browser download, soft removal, literal public text, another Requester's safe 404 and partial-upload retry without duplicate Ticket. Existing migration and attachment suites separately cover preservation, limits, idempotency and concurrency. Browser accounts are synthetic; legacy migration claims come from the migration suite, not browser setup. |
+| Staff/workflow: E2E-02, API-12?19, UNIT-04 | `staff-ticket-flow.spec.ts`: queue search/filter/sort/pagination, preserved page and filters after detail, refreshed matching rows after claim, active Administrator assignment, independent IT Priority, public/internal posts, upload and Requester response. Wait/resolve/close/reopen clears the indication without changing status on Requester submission. Existing workflow tests cover all 64 status pairs, cancellation, reason/owner/confirmation restrictions and competing claims. |
+| Administrator: E2E-03/05, API-20?24/26 | `user-administration.spec.ts`: create/duplicate/edit/reset/change password/role change/deactivate, revoked sessions, self-deactivation and last-admin safeguards; separate ticket reads and IT Priority without Staff inheritance. Existing API tests retain concurrent account safety and owner-unassignment checks. |
+| Feedback/accessibility: UI-01/02/06?10/12, STYLE-01 | New `client/tests/lab-03/IntegratedFeedback.test.tsx` covers discussion loading/failure/retry, Requester note exclusion, forbidden directory without false empty success and stale directory response rejection. `ZenGreen.test.tsx` checks approved palette plus field-associated login/password validation and focus. Existing component suites retain validation/busy/empty/no-results/success/forbidden/error coverage. |
+| Responsive/keyboard: RESP-01/02 | `responsive.spec.ts` exercises login/change password, Requester create/list/detail, Staff queue/detail/workflow, Administrator directory/dialog and permitted Ticket Detail at 1280?800, 768?1024 and 375?812; long unbroken content, email and filename, mobile cards/menu, modal accessible names, focus containment/Escape/return, validation focus, and queue 767/768/991/992 boundaries. Geometry/behavior assertions avoid pixel snapshots. |
+| Migration/regression: MIG-01?04, API-25 | Existing full backend suite includes synthetic populated Lab 2 upgrades, unchanged IDs/relationships/attachment bytes, handover failure/retry, create-only seed reruns, removed selector/legacy identity, and retained Lab 1?2 contracts. |
+
+All browser spec paths above are under `e2e/lab-03/`; server suite names are under `server/tests/lab-03/` unless explicitly identified as Lab 1?2. Coverage combines layers; an individual browser scenario is not a claim that every matrix edge was clicked in the browser.
+
+Targeted repairs revealed by these checks: retain and refresh Staff Queue query state across full detail; announce failed/loading discussion reads and provide retry; reject stale directory responses and suppress false empty state after errors; wrap mobile detail content and render mobile user cards; add dialog names/keyboard handling; associate auth validation errors and focus. No new role capability or workflow feature was added. The full-suite run also exposed unordered historical-priority snapshots in the existing Lab 2 create test: both queries now order by ID and still compare every original ID/priority exactly. The palette test uses a raw CSS import explicitly enabled in the existing Vitest/Vite configuration, avoiding a new Node-types dependency.
+
+### Reproduction and isolation
+
+- Install existing server/client dependencies with `npm ci` in their directories; install the new single browser runner with `npm --prefix e2e ci`, then run `npx playwright install chromium` from `e2e`.
+- Use the existing disposable PostgreSQL container `toktickit-lab3-auth-test` on localhost:55433, database `toktickit_lab3_test`, test user `lab3_test` / local-only fixture password `lab3_test_local`. The development database on 5433 is not a test target.
+- Before server commands, set these PowerShell variables:
+
+```powershell
+$env:DATABASE_URL='postgresql://lab3_test:lab3_test_local@127.0.0.1:55433/toktickit_lab3_test?schema=public'
+$env:NODE_ENV='test'
+$env:TEST_UPLOAD_ROOT='uploads/lab-03-test'
+$env:AUTH_ALLOW_HTTP_LOCALHOST='true'
+```
+
+- Backend setup resets only the guarded disposable schema. Do not run backend and browser suites concurrently against it. Browser config supplies the same database and starts dedicated API/UI servers at localhost:3101/5174; it refuses to reuse an existing listener. The launcher uses `server/tests/lab-03/e2e-server.ts`, not a product fixture API.
+- Browser fixtures generate unique accounts and in-memory random passwords, hash them with real Argon2id, and remove their records and confined upload bytes. One worker and zero retries make failures visible. Traces, videos and automatic screenshots are disabled to avoid recording credentials/session data; runner outputs are ignored in Git. Screenshot/reviewer/submission packaging remains with Issue #36.
+
+### Observed commands and results
+
+Results below refer to this edited workspace on 2026-09-19?20 (Windows, Node 24.14.0, npm 11.9.0, PostgreSQL 17 Alpine, Playwright 1.58.2 / Chromium), not a committed or released revision. Commands use `npm.cmd` in PowerShell. Observed results follow. Counts are per command and overlap; do not add focused runs to full-suite totals.
+
+| Working directory | Exact command | Observed result |
+|---|---|---|
+| client | `npm.cmd test -- tests/lab-03/ZenGreen.test.tsx tests/lab-03/IntegratedFeedback.test.tsx tests/lab-03/StaffTicketQueue.test.tsx` | 23 passed, 0 failed (3 files); after the raw-CSS build correction, STYLE-01 was rerun separately below and all cases rerun in the full client suite |
+| client | `npm.cmd test -- tests/lab-03/ZenGreen.test.tsx` | 3 passed, 0 failed (1 file), final raw-CSS configuration |
+| server | `npm.cmd test -- tests/lab-03/integration.api.test.ts tests/lab-02/tickets.create.test.ts` | 25 passed, 0 failed (2 files) |
+| server | `npm.cmd test -- tests/lab-03/auth.api.test.ts tests/lab-03/authorization.api.test.ts tests/lab-03/users-admin.api.test.ts tests/lab-03/integration.api.test.ts` | 58 passed, 0 failed (4 files) |
+| server | `npm.cmd test` | 249 passed, 0 failed, 0 skipped (25 files); includes all Lab 3 plus Lab 1?2 |
+| client | `npm.cmd test` | 83 passed, 0 failed, 0 skipped (16 files), final configuration |
+| e2e | `npm.cmd test` | 11 passed, 0 failed, 0 skipped (5 specs), Chromium with one worker and zero retries |
+| server | `npm.cmd run build` | PASS, exit 0 (`tsc`) |
+| client | `npm.cmd run build` | PASS, exit 0 (`tsc && vite build`) |
+| repository root | `git diff --check` | PASS, exit 0; only LF/CRLF conversion notices, no whitespace errors |
+
+The first full backend run had 245 passed / 4 failed because the preservation test compared unordered SQL results; explicit ordering fixed the test without changing its preservation assertion. The first client build failed because the palette test used Node filesystem types absent from the client project; the final test uses raw CSS and keeps the same palette assertions. Vitest's default CSS stub initially returned an empty string, resolved by enabling that one raw stylesheet import. Existing CreateTicket negative-path tests intentionally emit their simulated server error to stderr; their assertions pass. No authorization assertion, workflow edge, preservation invariant or existing test was removed or skipped.

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useDialogFocus } from "../useDialogFocus.js";
 import {
   Ticket,
   Attachment,
@@ -77,6 +78,9 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
   // Resolution indication state
   const [showResolutionModal, setShowResolutionModal] = useState(false);
   const [indicatingResolution, setIndicatingResolution] = useState(false);
+  useDialogFocus(showResolutionModal ? "resolution" : modalAttachment ? "remove" : null, () => {
+    if (!indicatingResolution && !isRemoving) { setShowResolutionModal(false); setModalAttachment(null); }
+  });
   const [resolutionError, setResolutionError] = useState<string | null>(null);
 
   // Administrator IT Priority state
@@ -88,6 +92,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
   const [commentPage, setCommentPage] = useState(1);
   const [commentTotalPages, setCommentTotalPages] = useState(1);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [commentLoadError, setCommentLoadError] = useState(false);
   const [newCommentBody, setNewCommentBody] = useState("");
   const [postingComment, setPostingComment] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
@@ -97,6 +102,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
   const [notePage, setNotePage] = useState(1);
   const [noteTotalPages, setNoteTotalPages] = useState(1);
   const [loadingNotes, setLoadingNotes] = useState(false);
+  const [noteLoadError, setNoteLoadError] = useState(false);
 
   const fetchTicket = useCallback(async () => {
     const version = ++generation.current;
@@ -120,13 +126,14 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
   const loadComments = useCallback(
     async (page: number, append = false) => {
       setLoadingComments(true);
+      setCommentLoadError(false);
       try {
         const res = await getPublicComments(ticketId, { page, pageSize: 10 });
         setComments((prev) => (append ? [...prev, ...res.data] : res.data));
         setCommentPage(res.pagination.page);
         setCommentTotalPages(res.pagination.totalPages);
       } catch {
-        // Non-blocking
+        setCommentLoadError(true);
       } finally {
         setLoadingComments(false);
       }
@@ -138,13 +145,14 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
     async (page: number, append = false) => {
       if (!isAdmin) return;
       setLoadingNotes(true);
+      setNoteLoadError(false);
       try {
         const res = await getInternalNotes(ticketId, { page, pageSize: 10 });
         setNotes((prev) => (append ? [...prev, ...res.data] : res.data));
         setNotePage(res.pagination.page);
         setNoteTotalPages(res.pagination.totalPages);
       } catch {
-        // Non-blocking
+        setNoteLoadError(true);
       } finally {
         setLoadingNotes(false);
       }
@@ -816,7 +824,9 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
         )}
 
         <div className="mb-3 pe-1">
-          {comments.length === 0 && !loadingComments && (
+          {loadingComments && <p role="status">Loading public comments...</p>}
+          {commentLoadError && <div role="alert">Unable to load public comments. <button className="btn btn-outline-secondary" onClick={() => loadComments(1)}>Retry comments</button></div>}
+          {comments.length === 0 && !loadingComments && !commentLoadError && (
             <p className="text-muted small">No public comments yet.</p>
           )}
           {comments.map((c) => (
@@ -886,7 +896,9 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
           </div>
 
           <div className="mb-2 pe-1">
-            {notes.length === 0 && !loadingNotes && (
+            {loadingNotes && <p role="status">Loading internal notes...</p>}
+            {noteLoadError && <div role="alert">Unable to load internal notes. <button className="btn btn-outline-secondary" onClick={() => loadNotes(1)}>Retry notes</button></div>}
+            {notes.length === 0 && !loadingNotes && !noteLoadError && (
               <p className="text-muted small">No internal notes recorded.</p>
             )}
             {notes.map((n) => (
@@ -920,6 +932,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
           style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
           role="dialog"
           aria-modal="true"
+          aria-labelledby="resolution-dialog-title"
         >
           <div className="modal-dialog modal-dialog-centered" role="document">
             <div className="modal-content border-0 shadow">
@@ -927,7 +940,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
                 className="modal-header text-white"
                 style={{ backgroundColor: "var(--primary-green)" }}
               >
-                <h5 className="modal-title h6 fw-bold">
+                <h5 className="modal-title h6 fw-bold" id="resolution-dialog-title">
                   Confirm Problem Appears Resolved
                 </h5>
                 <button

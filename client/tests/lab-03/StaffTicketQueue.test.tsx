@@ -116,6 +116,7 @@ describe("UI-07 Staff Queue", () => {
     fireEvent.click(screen.getAllByRole("button", { name: `Open Detail ${row.ticketNumber}` })[0]);
     view.rerender(<StaffTicketQueue navigationVersion={1} />);
     expect(screen.getByLabelText("Owner")).toHaveValue("unassigned");
+    await screen.findAllByText(row.summary);
   });
   it("shows category loading failure without fabricating options", async () => {
     vi.mocked(api.getCategories).mockRejectedValueOnce(new Error("Network failure")); render(<StaffTicketQueue />);

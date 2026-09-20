@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useDialogFocus } from "../useDialogFocus.js";
 import { useAuth } from "../context/AuthContext.js";
 import {
   type AdminUser,
@@ -61,9 +62,16 @@ export const UserManagement: React.FC = () => {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetPasswordError, setResetPasswordError] = useState<string | null>(null);
   const [savingReset, setSavingReset] = useState(false);
+  useDialogFocus(showCreateModal ? "create" : editingUser ? "edit" : resettingUser ? "reset" : null, () => {
+    if (!savingCreate && !savingEdit && !savingReset) {
+      setShowCreateModal(false); setEditingUser(null); setResettingUser(null);
+    }
+  });
+  const requestGeneration = useRef(0);
 
   // Fetch users
   const fetchUsers = useCallback(async () => {
+    const generation = ++requestGeneration.current;
     setLoading(true);
     setError(null);
     try {
@@ -72,15 +80,17 @@ export const UserManagement: React.FC = () => {
       if (roleFilter) params.role = roleFilter as UserRole;
 
       const res = await getAdminUsers(params);
+      if (generation !== requestGeneration.current) return;
       setUsers(res.data);
     } catch (err: any) {
+      if (generation !== requestGeneration.current) return;
       if (err instanceof ApiError && err.status === 403) {
         setError("Access Denied: You do not have permission to access User Management.");
       } else {
         setError(err.message || "Failed to load users. Please try again.");
       }
     } finally {
-      setLoading(false);
+      if (generation === requestGeneration.current) setLoading(false);
     }
   }, [search, roleFilter]);
 
@@ -88,6 +98,7 @@ export const UserManagement: React.FC = () => {
     if (authUser?.role === "ADMINISTRATOR") {
       fetchUsers();
     }
+    return () => { requestGeneration.current++; };
   }, [authUser, fetchUsers]);
 
   // Non-administrator access guard
@@ -373,7 +384,7 @@ export const UserManagement: React.FC = () => {
           <div className="spinner-border text-zen-primary mb-2" role="status"></div>
           <p className="text-muted small">Loading user directory...</p>
         </div>
-      ) : users.length === 0 ? (
+      ) : error ? null : users.length === 0 ? (
         <div className="zen-card text-center py-5">
           <p className="text-muted mb-2">No users match the current search and filter criteria.</p>
           {(search || roleFilter) && (
@@ -405,14 +416,14 @@ export const UserManagement: React.FC = () => {
               <tbody>
                 {users.map((u) => (
                   <tr key={u.id}>
-                    <td className="fw-medium">
+                    <td className="fw-medium" data-label="Name">
                       {u.name}
                       {u.id === authUser.id && (
                         <span className="badge bg-secondary ms-2 small">You</span>
                       )}
                     </td>
-                    <td className="text-muted">{u.email}</td>
-                    <td>
+                    <td className="text-muted" data-label="Email">{u.email}</td>
+                    <td data-label="Role">
                       <span className={`badge ${
                         u.role === "ADMINISTRATOR" ? "bg-dark text-white"
                         : u.role === "IT_STAFF" ? "bg-primary text-white"
@@ -421,7 +432,7 @@ export const UserManagement: React.FC = () => {
                         {roleLabel(u.role)}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Status">
                       {u.isActive ? (
                         <span className="badge bg-success">Active</span>
                       ) : (
@@ -433,7 +444,7 @@ export const UserManagement: React.FC = () => {
                         </span>
                       )}
                     </td>
-                    <td className="text-end">
+                    <td className="text-end" data-label="Actions">
                       <button
                         type="button"
                         className="btn btn-outline-secondary btn-sm"
@@ -453,12 +464,12 @@ export const UserManagement: React.FC = () => {
 
       {/* CREATE USER MODAL */}
       {showCreateModal && (
-        <div className="modal show d-block" tabIndex={-1} role="dialog" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+        <div className="modal show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="create-user-title" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
           <div className="modal-dialog modal-dialog-centered" role="document">
             <div className="modal-content">
               <form onSubmit={handleSubmitCreate}>
                 <div className="modal-header">
-                  <h2 className="modal-title h5 mb-0">Create New User</h2>
+                  <h2 className="modal-title h5 mb-0" id="create-user-title">Create New User</h2>
                   <button
                     type="button"
                     className="btn-close"
@@ -579,12 +590,12 @@ export const UserManagement: React.FC = () => {
 
       {/* EDIT USER MODAL */}
       {editingUser && (
-        <div className="modal show d-block" tabIndex={-1} role="dialog" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+        <div className="modal show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="edit-user-title" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
           <div className="modal-dialog modal-dialog-centered" role="document">
             <div className="modal-content">
               <form onSubmit={handleSubmitEdit}>
                 <div className="modal-header">
-                  <h2 className="modal-title h5 mb-0">Edit User: {editingUser.name}</h2>
+                  <h2 className="modal-title h5 mb-0" id="edit-user-title">Edit User: {editingUser.name}</h2>
                   <button
                     type="button"
                     className="btn-close"
@@ -711,12 +722,12 @@ export const UserManagement: React.FC = () => {
 
       {/* RESET INITIAL PASSWORD MODAL */}
       {resettingUser && (
-        <div className="modal show d-block" tabIndex={-1} role="dialog" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+        <div className="modal show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="reset-user-title" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
           <div className="modal-dialog modal-dialog-centered" role="document">
             <div className="modal-content">
               <form onSubmit={handleSubmitResetPassword}>
                 <div className="modal-header">
-                  <h2 className="modal-title h5 mb-0">Set New Initial Password</h2>
+                  <h2 className="modal-title h5 mb-0" id="reset-user-title">Set New Initial Password</h2>
                   <button
                     type="button"
                     className="btn-close"

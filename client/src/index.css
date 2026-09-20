@@ -331,6 +331,10 @@ body {
 /* The same Requester destinations remain keyboard-accessible on small screens. */
 .requester-menu-toggle { display: none; }
 .staff-queue { overflow-wrap: anywhere; }
+.ticket-detail-view, .staff-ticket-detail, .user-management { overflow-wrap: anywhere; }
+.ticket-detail-view .d-flex, .staff-ticket-detail .d-flex { min-width: 0; }
+.ticket-detail-view .badge-status, .staff-ticket-detail .badge-status { white-space: normal; }
+.user-management .btn, .staff-ticket-detail .btn { min-height: 44px; }
 .staff-queue button, .staff-queue input, .staff-queue select { min-height: 44px; }
 .queue-filter-toggle { display: none; }
 .queue-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
@@ -353,6 +357,13 @@ body {
   .queue-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 767px) {
+  .ticket-detail-view .d-flex, .staff-ticket-detail .list-group-item.d-flex { flex-wrap: wrap; gap: .5rem; }
+  .user-management table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .user-management table tbody, .user-management table tr { display: block; }
+  .user-management table tr { padding: 1rem; border-bottom: 1px solid var(--border-neutral); }
+  .user-management table td { display: block; border: 0; padding: .25rem 0; text-align: left !important; }
+  .user-management table td::before { content: attr(data-label) ": "; font-weight: 600; }
+  .user-management table .badge { white-space: normal; }
   .queue-filter-toggle { display: inline-block; }
   .queue-filters { display: none; }
   .queue-filters.is-open { display: grid; grid-template-columns: minmax(0, 1fr); }

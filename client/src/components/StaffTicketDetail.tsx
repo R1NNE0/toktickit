@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useDialogFocus } from "../useDialogFocus.js";
 import {
   StaffTicketDetail as StaffTicketDetailType,
   Assignee,
@@ -134,6 +135,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
   const [commentPage, setCommentPage] = useState(1);
   const [commentTotalPages, setCommentTotalPages] = useState(1);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [commentLoadError, setCommentLoadError] = useState(false);
   const [newCommentBody, setNewCommentBody] = useState("");
   const [postingComment, setPostingComment] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
@@ -143,6 +145,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
   const [notePage, setNotePage] = useState(1);
   const [noteTotalPages, setNoteTotalPages] = useState(1);
   const [loadingNotes, setLoadingNotes] = useState(false);
+  const [noteLoadError, setNoteLoadError] = useState(false);
   const [newNoteBody, setNewNoteBody] = useState("");
   const [postingNote, setPostingNote] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
@@ -154,6 +157,9 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
   const [removalReason, setRemovalReason] = useState("");
   const [removalError, setRemovalError] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  useDialogFocus(transitionModal ? "status" : modalAttachment ? "remove" : null, () => {
+    if (!savingStatus && !isRemoving) { setTransitionModal(null); setModalAttachment(null); }
+  });
 
   const fetchTicketData = useCallback(async () => {
     setLoading(true);
@@ -182,13 +188,14 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
 
   const loadComments = useCallback(async (page: number, append = false) => {
     setLoadingComments(true);
+    setCommentLoadError(false);
     try {
       const res = await getPublicComments(ticketId, { page, pageSize: 10 });
       setComments((prev) => (append ? [...prev, ...res.data] : res.data));
       setCommentPage(res.pagination.page);
       setCommentTotalPages(res.pagination.totalPages);
     } catch {
-      // Ignored
+      setCommentLoadError(true);
     } finally {
       setLoadingComments(false);
     }
@@ -196,13 +203,14 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
 
   const loadNotes = useCallback(async (page: number, append = false) => {
     setLoadingNotes(true);
+    setNoteLoadError(false);
     try {
       const res = await getInternalNotes(ticketId, { page, pageSize: 10 });
       setNotes((prev) => (append ? [...prev, ...res.data] : res.data));
       setNotePage(res.pagination.page);
       setNoteTotalPages(res.pagination.totalPages);
     } catch {
-      // Ignored
+      setNoteLoadError(true);
     } finally {
       setLoadingNotes(false);
     }
@@ -810,7 +818,9 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
             {commentError && <div className="alert alert-danger py-2 mb-2" role="alert">{commentError}</div>}
 
             <div className="flex-grow-1 overflow-auto mb-3 pe-1" style={{ maxHeight: 400 }}>
-              {comments.length === 0 && !loadingComments && (
+              {loadingComments && <p role="status">Loading public comments...</p>}
+              {commentLoadError && <div role="alert">Unable to load public comments. <button className="btn btn-outline-secondary" onClick={() => loadComments(1)}>Retry comments</button></div>}
+              {comments.length === 0 && !loadingComments && !commentLoadError && (
                 <p className="text-muted small">No public comments yet.</p>
               )}
               {comments.map((c) => (
@@ -879,7 +889,9 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
             {noteError && <div className="alert alert-danger py-2 mb-2" role="alert">{noteError}</div>}
 
             <div className="flex-grow-1 overflow-auto mb-3 pe-1" style={{ maxHeight: 400 }}>
-              {notes.length === 0 && !loadingNotes && (
+              {loadingNotes && <p role="status">Loading internal notes...</p>}
+              {noteLoadError && <div role="alert">Unable to load internal notes. <button className="btn btn-outline-secondary" onClick={() => loadNotes(1)}>Retry notes</button></div>}
+              {notes.length === 0 && !loadingNotes && !noteLoadError && (
                 <p className="text-muted small">No internal notes yet.</p>
               )}
               {notes.map((n) => (
@@ -935,11 +947,11 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
 
       {/* Status Transition Confirmation Modal */}
       {transitionModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }} tabIndex={-1} role="dialog" aria-modal="true">
+        <div className="modal fade show d-block" style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="status-dialog-title">
           <div className="modal-dialog modal-dialog-centered" role="document">
             <div className="modal-content border-0 shadow">
               <div className="modal-header bg-success text-white" style={{ backgroundColor: "var(--primary-green)" }}>
-                <h5 className="modal-title h6 fw-bold">
+                <h5 className="modal-title h6 fw-bold" id="status-dialog-title">
                   Confirm Status Change: {formatStatus(ticket.currentStatus)} &rarr; {transitionModal.label}
                 </h5>
                 <button
@@ -1008,11 +1020,11 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
 
       {/* Attachment Soft Removal Modal */}
       {modalAttachment && (
-        <div className="modal fade show d-block" style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }} tabIndex={-1} role="dialog" aria-modal="true">
+        <div className="modal fade show d-block" style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="staff-remove-title">
           <div className="modal-dialog modal-dialog-centered" role="document">
             <div className="modal-content border-0 shadow">
               <div className="modal-header bg-danger text-white">
-                <h5 className="modal-title h6 fw-bold">Confirm Attachment Removal</h5>
+                <h5 className="modal-title h6 fw-bold" id="staff-remove-title">Confirm Attachment Removal</h5>
                 <button
                   type="button"
                   className="btn-close btn-close-white"

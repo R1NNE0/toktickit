@@ -51,7 +51,7 @@ export function StaffTicketQueue({ navigationVersion = 0, onOpenDetail }: { navi
         .finally(() => { if (active) setLoading(false); });
     }, 250);
     return () => { active = false; clearTimeout(timer); controller.abort(); };
-  }, [filters, page, refresh, validation]);
+  }, [filters, page, refresh, validation, navigationVersion]);
   function change(key: keyof typeof initial, value: string) { setFilters(previous => ({ ...previous, [key]: value })); setPage(1); }
   const hasFilters = Boolean(filters.search.trim() || filters.status || filters.categoryId || filters.priority || filters.itPriority || filters.ownerMode);
   function select(key: keyof typeof initial, title: string, options: [string, string][], all = true) {

@@ -1,7 +1,7 @@
 # Lab 3 UI and Responsive Specification
 
-Status: **Engineering decisions approved through Phase 2.2 — screens not implemented or visually verified.**
-Policy: [specification.md](specification.md), especially §6. Wire behavior: [api-spec.md](api-spec.md). Preserve React/Bootstrap and the actual [Lab 2 tokens](../../client/src/index.css); do not implement the inaccurate alternate palette in README.
+Status: **Approved contract; integrated screens and responsive evidence audited for Issue #36 on 2026-09-22.** See [tests.md](tests.md) for verified behavior and remaining coverage limits; screenshots do not constitute exhaustive accessibility certification.
+Policy: [specification.md](specification.md), especially §6. Wire behavior: [api-spec.md](api-spec.md). Preserve React/Bootstrap and the shared [Zen Green tokens](../../client/src/index.css).
 
 ## 1. Zen Green foundation
 
@@ -138,7 +138,7 @@ Use role=status/aria-live for asynchronous feedback, role=alert for actionable e
 
 Required captures: desktop 1280x800, tablet 768x1024, mobile 375x812; also inspect 767/768 and 991/992 breakpoint boundaries. Wrap long filenames, email addresses, descriptions and unbroken text. No horizontal page overflow, clipped labels, overlapping errors, hidden navigation or inaccessible dialog buttons.
 
-Planned screenshot directories (not created in Phase 2):
+Evidence directories (capture inventory and review notes are in the [screenshot index](../../artifacts/lab-03/screenshots/README.md)):
 
 - `artifacts/lab-03/screenshots/authentication/`
 - `artifacts/lab-03/screenshots/staff-queue/`
@@ -146,12 +146,12 @@ Planned screenshot directories (not created in Phase 2):
 - `artifacts/lab-03/screenshots/user-management/`
 - `artifacts/lab-03/screenshots/requester-regression/` (additional continuity evidence)
 
-Record viewport/state/role and tested commit for each actual capture. Automate semantic/style assertions and browser dimensions, then visually inspect screenshots; jsdom rendering alone cannot prove responsiveness.
+Use `<state>-<desktop|tablet|mobile>.png`; scrollable dialogs may have a paired `-bottom.png`, and horizontally scrollable tables have a paired `-right.png` to expose the remaining columns. The [manifest](../../artifacts/lab-03/screenshots/manifest.json) records each actual file, role, state, viewport, image dimensions, hash and base revision. Capture-only simulated loading/failure states are labeled explicitly. These are integrated-workspace images, not final-main evidence. Automate semantic/style assertions and browser dimensions, then visually inspect screenshots; jsdom rendering alone cannot prove responsiveness.
 
-- [ ] Tokens, typography, buttons, badges and read-only fields match the contract.
-- [ ] Required/invalid labels and feedback remain readable and programmatically associated.
-- [ ] Keyboard navigation, visible focus, dialogs and mobile menu work.
-- [ ] All relevant states in §9 captured/tested without fake success.
-- [ ] Long content wraps with no clipping/overlap/page overflow at all viewports.
-- [ ] Requester/Staff/Admin visibility verified in UI and direct API tests.
-- [ ] Actual screenshots reviewed and linked from tests.md; no captures exist yet.
+- [ ] Full style/semantic conformance: the owner-label defect is resolved and verified (tests.md §11; six refreshed detail/confirmation captures). Active Staff/Administrator labels and unassigned display are correct. Remaining STYLE-01/presentation/manual checks are unchanged; resolving this defect is not exhaustive UI sign-off.
+- [ ] All required/invalid fields programmatically associated: auth checks pass; exhaustive non-auth form associations remain unverified.
+- [ ] Exhaustive keyboard/visible-focus/44px-target audit: existing modal/menu/auth focus tests pass; full manual accessibility sign-off remains pending.
+- [ ] Every relevant §9 state on every screen: major captures and component/API cases exist, but not every state has a screenshot; see the evidence index and Partial rows in tests.md.
+- [x] Browser checks verify no horizontal page overflow at the three required viewports and long-content/breakpoint behavior in responsive.spec.ts. Scrollable table columns need paired evidence; this does not certify every badge/label against clipping.
+- [x] Requester/Staff/Admin visibility exercised in UI and direct API tests; authorization matrix unchanged.
+- [x] Actual screenshots linked from tests.md; agent inspection and its findings recorded in the index. Human visual approval remains pending and is not fabricated.

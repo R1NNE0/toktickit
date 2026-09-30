@@ -27,7 +27,9 @@ export function formatTicketDetail(ticket: any) {
     itPriority: ticket.itPriority,
     currentStatus: ticket.currentStatus,
     ownerId: ticket.ownerId ?? null,
-    owner: ticket.owner ? { id: ticket.owner.id, name: ticket.owner.name } : null,
+    owner: ticket.owner ? {
+      id: ticket.owner.id, name: ticket.owner.name, role: ticket.owner.role, isActive: ticket.owner.isActive,
+    } : null,
     category: ticket.category,
     relatedSystem: ticket.relatedSystem,
     requester: ticket.requester

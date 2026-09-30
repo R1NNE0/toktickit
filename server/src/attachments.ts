@@ -26,6 +26,6 @@ export const ticketDetailInclude = {
   category: { select: { id: true, name: true } },
   relatedSystem: { select: { id: true, name: true } },
   requester: { select: { id: true, name: true, email: true } },
-  owner: { select: { id: true, name: true } },
+  owner: { select: { id: true, name: true, role: true, isActive: true } },
   attachments: { select: attachmentSelect, orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
 } satisfies Prisma.TicketInclude;

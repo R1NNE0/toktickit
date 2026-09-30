@@ -1,6 +1,6 @@
 # Lab 3 REST API Contract
 
-Status: **Engineering decisions approved through Phase 2.2 — unimplemented.** Prepared 2026-09-15 against Lab 2 `8fb7e8c`.
+Status: **Approved contract; integrated API implementation audited for Issue #36 on 2026-09-22.** Originally prepared 2026-09-15 against Lab 2 `8fb7e8c`; execution evidence and coverage limits are in [tests.md](tests.md). This is not final-main release verification.
 Policy source: [specification.md](specification.md), especially BR-01–30, §6 authorization/transitions, and ED-01–10. Paths, DTOs and numerical limits are Engineering Decisions; Administrator permissions follow the capability classification in specification.md §6.1, including required IT Priority access and explicit matrix choices rather than blanket Staff inheritance.
 
 ## 1. Protocol, authorization and errors
@@ -36,7 +36,7 @@ Cookie attributes: HttpOnly; SameSite=Lax; Path=/; no Domain; Secure on HTTPS. A
 
 Rotate and replace the session/CSRF token at login and successful password change. Revoke current session on logout; revoke all target-user sessions on password change/reset, email/role change or deactivation. Every protected request verifies current user isActive/role/mustChangePassword. Database/session errors fail closed. Role information cached in a browser is never authoritative.
 
-Argon2id: explicit minimum memoryCost 19456 KiB, timeCost 2, parallelism 1, library-generated random salt and encoded hash. Select and verify the package version for Node/Windows during later authorized implementation; the hashing decision is approved. Passwords: 15–128 Unicode code points, no trimming/truncation, allow Unicode/spaces, reject current-password reuse and exact matches after lowercasing against this local baseline denylist: `passwordpassword`, `123456789012345`, `qwertyuiopasdfgh`, `letmeinletmeinletmein`. No online password service is required. All initial passwords follow the same length policy. JSON body limit 128 KiB bounds resource use; log neither request passwords nor cookies.
+Argon2id: explicit minimum memoryCost 19456 KiB, timeCost 2, parallelism 1, library-generated random salt and encoded hash. The implementation uses argon2 0.44.0; Node 24.14.0/Windows execution is recorded in tests.md. Passwords: 15–128 Unicode code points, no trimming/truncation, allow Unicode/spaces, reject current-password reuse and exact matches after lowercasing against this local baseline denylist: `passwordpassword`, `123456789012345`, `qwertyuiopasdfgh`, `letmeinletmeinletmein`. No online password service is required. All initial passwords follow the same length policy. JSON body limit 128 KiB bounds resource use; log neither request passwords nor cookies.
 
 Five failed logins per normalized-email/IP pair in a rolling 15-minute window and 100 login attempts/IP/15 minutes return 429. Apply counters equally to unknown/known/inactive users. Use comparable hash verification for all credential failures. Bounded in-memory counters are an explicit single-local-server limitation, not a distributed rate-limit system.
 
@@ -62,6 +62,8 @@ These named shapes define all fields; no automatic Prisma serialization of sensi
 - `Attachment`: `{ id, ticketId, fileName, fileSize, mimeType, isRemoved, removedAt: string|null, removalReason: string|null, createdAt }`. Never storedPath. Upload responses set removal fields to null.
 - `TicketRow`: `{ id, ticketNumber, summary, description, requesterId, categoryId, relatedSystemId, requestedPriority, itPriority, currentStatus, ownerId: number|null, owner: OwnerRef|null, category, relatedSystem, createdAt, updatedAt, resolutionSuggestedAt: string|null, resolutionSuggestedById: number|null, attachmentCount }`. Count only active attachments. Staff rows additionally include `requester: UserRef`.
 - `TicketDetail`: TicketRow plus `requester: UserRef` and `attachments: Attachment[]` including removed metadata, ordered createdAt/id ascending. It never embeds comments/notes; retrieve through separately authorized endpoints.
+
+Issue #36 audit finding resolved on 2026-09-26: the shared detail query and `formatTicketDetail` now preserve all four OwnerRef fields, fixing the false inactive-Administrator label. Exact-shape API assertions, component rendering and real-response browser checks passed (tests.md §11). The response contract and authorization rules above are unchanged.
 - `Entry`: `{ id, ticketId, body, author: { id, name }, createdAt }` for either a comment or a note; no password or private account metadata.
 - `AdminUser`: `{ id, name, email, role, isActive, mustChangePassword, createdAt, updatedAt }`.
 
@@ -142,8 +144,8 @@ Account updates require no timestamp/version token and do not reject an ordinary
 
 Self-deactivation is always rejected. Demoting/deactivating the last active Administrator is rejected. Other role changes are allowed, including Requester-to-Staff with existing submitted tickets; preserve their submitter/history relationships. When an owner becomes inactive/ineligible, clear ownerId on their tickets and update their existing updatedAt timestamps in the transaction. An Administrator resetting their own password loses the current session and returns to login; subsequent login requires change.
 
-## 8. Compatibility, planned implementation boundaries and review
+## 8. Compatibility, implementation boundaries and review
 
-Expected future touchpoints: server app composition and new auth/authorization/routes/services modules; client api.ts/AuthContext/App/Header and ticket components; Prisma schema/migrations/seed; environment examples and package lockfiles. **None are changed by Phase 2.** Public Lab 1 health/reference contracts survive. Historical Lab 2 tests using `prisma.requesterUser`/header identity must be adapted to `prisma.user`/authenticated agents, preserving business assertions.
+Implemented touchpoints include server app composition, authentication/authorization and ticket/user handlers; client api.ts/AuthContext/App/Header and ticket components; Prisma schema/migrations/seed; environment examples and package lockfiles. Public Lab 1 health/reference contracts remain. Retained Lab 2 tests use `prisma.user` and authenticated agents; tests.md distinguishes those regressions from new Lab 3 coverage. Issue #36 changes documentation and opt-in visual evidence only.
 
-ED-01–10 are approved by the user through Phases 2.1 and 2.2 on 2026-09-15. The approved Administrator matrix remains unchanged. Phase 2.2 sets default page size 10 and removes broad optimistic locking/client version tokens; 409 remains for actual business conflicts. Package compatibility, safe local provisioning, migration preflight and test-environment verification are future implementation checks, not pending engineering-policy approvals. No unresolved policy choice currently blocks implementation; application implementation is outside this documentation-only phase.
+ED-01–10 were approved by the user through Phases 2.1 and 2.2 on 2026-09-15. The approved Administrator matrix remains unchanged. Default page size is 10; no broad optimistic locking/client version tokens were introduced; 409 remains for actual business conflicts. Local runtime, isolated migration/provisioning and security checks have executed as recorded in tests.md. A real deployment still requires collision/data/file preflight. Outstanding coverage and delivery checks are verification facts, not new engineering-policy approvals.

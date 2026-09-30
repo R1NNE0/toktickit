@@ -1,258 +1,144 @@
-# TokTickIT (ตอกติ๊กกิต) — IT Service Desk Application
+﻿# TokTickIT — IT Service Desk
 
-> **CPE 334 Introduction to Software Engineering in the Age of AI Agents**  
-> Department of Computer Engineering, King Mongkut's University of Technology Thonburi (KMUTT)  
-> Semester 1/2026
+Course project for CPE 334, KMUTT, semester 1/2026. Lab 3 adds authenticated Requester, IT Staff and Administrator workflows to the preserved Lab 1–2 increment.
 
-![Tests](https://img.shields.io/badge/Tests-81%2F81%20Passing%20(100%25)-success?style=flat-square)
-![Frontend](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Vite%20%7C%20Bootstrap%205-blue?style=flat-square)
-![Backend](https://img.shields.io/badge/Backend-Express%20%7C%20Node.js%20%7C%20TypeScript-green?style=flat-square)
-![Database](https://img.shields.io/badge/Database-PostgreSQL%2017%20%7C%20Prisma%20ORM-indigo?style=flat-square)
-![Design](https://img.shields.io/badge/Design-Zen%20Green%20System-darkgreen?style=flat-square)
+## Current functionality
 
-TokTickIT is a full-stack IT service desk web application designed to streamline campus IT support across **Account and Access**, **Hardware**, **Software**, and **Network** domains.
+- **Authentication:** Argon2id passwords, mandatory initial-password change, opaque PostgreSQL sessions, HttpOnly cookies, CSRF checks, login throttling and logout/revocation. Identity comes from the server session; the development Requester selector and header identity are removed.
+- **Requester:** create Tickets, My Tickets search/filter/sort/pagination, owned detail, attachments, Public Comments and an independent “Problem Appears Resolved” indication.
+- **IT Staff:** shared Queue, claim/assignment, IT Priority, approved status transitions, Public Comments, Internal Notes and permitted attachment operations.
+- **Administrator:** user listing/search/create/edit/activation/initial-password reset and account safeguards. Known-ticket detail, Public Comments, Internal Notes and attachment metadata are readable; IT Priority is editable. Queue, claim, assignment, status changes, discussion posting and attachment upload/download/removal are denied.
+- **Continuity:** IDs, ownership, existing Tickets and Attachments survive forward migrations. Attachment soft removal retains metadata and bytes. Requesters do not change formal Ticket status.
 
-Following the foundation established in Lab 1, **Lab 2: Requester Ticketing MVP with UI Foundation** introduces a complete, production-grade Requester workflow featuring ticket submission with multi-file attachments, an interactive personal ticket dashboard with search/filtering/pagination, comprehensive ticket detail views with lifecycle status audits, and the custom **Zen Green Design System**.
+Statuses: NEW, OPEN, IN_PROGRESS, WAITING_FOR_REQUESTER, RESOLVED, CLOSED, REOPENED, CANCELLED. Both priorities: LOW, MEDIUM, HIGH, CRITICAL. The approved [authorization and transition matrices](docs/lab-03/specification.md) remain authoritative.
 
----
+The Issue #36 owner-label blocker was resolved and verified on 2026-09-26: detail responses now include the contract's owner role/isActive fields. Current verification passed **252 backend tests, 87 client tests, 11 E2E tests and both builds**; only the six affected detail/confirmation captures were regenerated. See [tests.md §11](docs/lab-03/tests.md#11-owner-metadata-blocker-correction-2026-09-26). Other documented Partial/manual items and final release approval remain outstanding.
 
-## 🌟 Core Features (Lab 2 — Requester MVP)
+## Stack and structure
 
-1. **👤 Simulated Requester Identity & Switcher**
-   - Header-level user switcher to simulate authenticated requesters (e.g., Somchai Jaidee, Somsri Rakdi).
-   - Global `RequesterContext` maintaining reactive session state across views.
-
-2. **📝 Ticket Submission & File Attachments**
-   - Dynamic category selection and priority flags (`LOW`, `MEDIUM`, `HIGH`, `URGENT`).
-   - Multi-file attachment upload with client and server-side MIME type verification and size limits (up to 5 files, 5MB per file).
-   - Client-side idempotency key safeguard to prevent accidental double-submission on network latency.
-
-3. **📊 "My Tickets" Dashboard**
-   - Real-time status filtering (`ALL`, `NEW`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`, `CANCELLED`).
-   - Keyword search across Ticket ID and title.
-   - Category filtering and sorting controls.
-   - Dual layout: responsive tabular view on desktop and card-based layout on mobile viewports.
-   - Client-side pagination with configurable page size.
-
-4. **🔍 Ticket Detail & Lifecycle Audit Timeline**
-   - In-depth ticket view displaying metadata, requester info, status badges, and description.
-   - Chronological audit timeline recording state transitions and timestamps.
-   - Secure file attachment download with RFC 6266 compliant UTF-8 `Content-Disposition` headers and `X-Content-Type-Options: nosniff`.
-   - Soft-delete ticket cancellation (`CANCELLED`) with 409 Conflict audit guardrails against duplicate operations.
-
-5. **🌿 Zen Green Design System**
-   - Custom color tokens inspired by nature (`#2D5A27`, `#4A7C59`, `#F4F7F4`, `#1B3B1A`).
-   - Accessible contrast levels (WCAG AA compliant), glassmorphism headers, responsive grids, and subtle micro-animations.
-
----
-
-## 🛠️ Technology Stack
-
-| Layer | Technologies |
-|---|---|
-| **Frontend** | React 18, TypeScript, Vite 6, Bootstrap 5.3, Custom Zen Green CSS |
-| **Backend** | Node.js (ES Modules), Express 4, TypeScript, Multer |
-| **Database & ORM** | PostgreSQL 17 (Docker Compose), Prisma ORM 5 |
-| **Testing** | Vitest 2, React Testing Library, Supertest (81/81 automated tests green) |
-| **DevOps & Standards** | Docker Compose, tsx, ESLint, Git PR Review Flow |
-
----
-
-## 📁 Repository Structure
+React 18 / TypeScript / Vite 6 / Bootstrap 5, Express 4, Prisma 5 and PostgreSQL 17. Tests use Vitest, React Testing Library, Supertest and Playwright Chromium. Zen Green tokens live in `client/src/index.css` (primary `#006b3c`, pale `#eaf6ef`, page `#f5f7f6`).
 
 ```text
-toktickit/
-├── client/                     # React + Vite + TypeScript Frontend
-│   ├── src/
-│   │   ├── components/         # TicketForm, TicketList, TicketDetail, UserSwitcher, etc.
-│   │   ├── context/            # RequesterContext (simulated authentication)
-│   │   ├── styles/             # Zen Green CSS variables & design tokens
-│   │   ├── types/              # TypeScript interface definitions
-│   │   └── api/                # API client fetchers
-│   ├── tests/                  # Client unit & integration tests (Vitest + RTL)
-│   └── .env.example            # Client environment configuration template
-├── server/                     # Express + Node.js + TypeScript Backend
-│   ├── prisma/
-│   │   ├── schema.prisma       # Prisma schema (User, Category, Ticket, Attachment, AuditLog)
-│   │   ├── migrations/         # Version-controlled migration history
-│   │   └── seed.ts             # Database seeder (categories, users, sample tickets)
-│   ├── src/
-│   │   ├── controllers/        # Express route handlers
-│   │   ├── routes/             # API route definitions
-│   │   ├── middleware/         # File upload & validation middleware
-│   │   └── app.ts              # Express application setup
-│   ├── uploads/                # Local attachment storage (gitignored)
-│   ├── tests/                  # Backend integration tests (Supertest)
-│   │   ├── lab-01/             # Lab 1 baseline tests
-│   │   └── lab-02/             # Lab 2 requester & E2E lifecycle tests
-│   └── .env.example            # Server environment configuration template
-├── docs/                       # Course documentation & sprint deliverables
-│   ├── lab-01/                 # Lab 1 vertical slice documentation
-│   └── lab-02/                 # Lab 2 Requester MVP documentation
-│       ├── specification.md    # System requirements & user stories
-│       ├── api-spec.md         # RESTful API specifications
-│       ├── ui-spec.md          # Zen Green UI/UX design specifications
-│       ├── tests.md            # Test matrix & verification evidence (21/21 passed)
-│       ├── reviewer.md         # Peer review logs for PRs #19 - #25
-│       └── ai-use.md           # AI assistance logs & reflection essay
-├── docker-compose.yml          # PostgreSQL 17 container definition (port 5433:5432)
-├── .gitignore                  # Git ignore rules for node_modules, .env, uploads & build
-└── README.md                   # Project documentation & setup instructions
+client/src/                     App, components, AuthContext, api.ts, auth-client.ts, index.css
+client/tests/                  Lab 1–3 component/unit tests
+client/src/tests/lab-02/        Retained Lab 2 component tests
+server/src/                    Express app, auth, policy, query and workflow modules
+server/prisma/                 Mapped User schema, additive migrations, create-only seed
+server/scripts/                Forward auth migration and private credential handover
+server/tests/lab-01..03/        API/unit/security/migration/regression tests
+e2e/lab-03/                    Real-browser regression specs and isolated fixtures
+e2e/evidence/                  Opt-in screenshot capture using the same application/fixtures
+docs/lab-01..03/               Contracts, tests and student-owned delivery records
+artifacts/lab-03/screenshots/   Sanitized visual evidence and index
+docker-compose.yml             Development PostgreSQL on localhost:5433
 ```
 
----
+## Local setup (PowerShell)
 
-## 🌿 Git Branching Model & Sprint 2 Delivery
+Verified tooling: Node **24.14.0**, npm **11.9.0**, Docker Desktop with Linux containers, PostgreSQL **17 Alpine**. Use lockfiles with `npm ci`. Chromium is installed separately for browser tests. Distributed rate limiting, email recovery and deployment hardening are outside this local course project's scope.
 
-This project strictly follows the course branching model with mandatory peer reviews before merging into integration branches:
+Start the development database from the repository root:
 
-- **Release Flow:** `feat/*` ➔ Pull Request ➔ `lab2-staging` ➔ Release PR ➔ `main`
-- **Sprint 2 Pull Requests:**
-  - **PR #19** (`feat/lab2-spec-and-test-plan`): System specification, API spec, UI spec, and test matrix.
-  - **PR #20** (`feat/lab2-db-seed`): Prisma schema extensions, migration, and comprehensive seed data.
-  - **PR #21** (`feat/lab2-requester-context`): Simulated user switcher, header, and global requester context.
-  - **PR #22** (`feat/lab2-create-ticket`): Ticket creation form, multi-file upload, and idempotency protection.
-  - **PR #23** (`feat/lab2-my-tickets`): My Tickets dashboard with real-time filtering, search, and pagination.
-  - **PR #24** (`feat/lab2-ticket-details`): Ticket detail view, audit history, attachment download, and soft deletion.
-  - **PR #25** (`feat/lab2-e2e-release`): End-to-end integration test suite, release verification, and documentation.
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Node.js**: v18.x or v20.x+
-- **npm**: v9.x+
-- **Docker Desktop**: for running PostgreSQL container
-
----
-
-### 1. Database Setup (Docker Compose)
-
-Start the PostgreSQL 17 database service:
-
-```bash
+```powershell
 docker compose up -d
 ```
 
-> **Note:** The database is exposed on host port **5433** to avoid conflicting with any default local PostgreSQL instance on port 5432.
+In a private interactive terminal, from `server`:
 
----
-
-### 2. Backend Setup
-
-```bash
-cd server
-
-# Install dependencies
-npm install
-
-# Configure environment variables
-cp .env.example .env
-
-# Apply database migrations
-npx prisma migrate dev
-
-# Seed database with initial categories, users, and sample tickets
+```powershell
+npm ci
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+$env:DATABASE_URL='postgresql://toktickit:toktickit@localhost:5433/toktickit?schema=public'
+$env:PORT='3000'
+$env:FRONTEND_ORIGIN='http://localhost:5173'
+$env:AUTH_ALLOW_HTTP_LOCALHOST='true'
+npx prisma generate
+npm run prisma:migrate:auth
 npm run prisma:seed
-
-# Start backend server in development mode
 npm run dev
 ```
 
-The Express API will be available at **`http://localhost:3000`**.
+These database credentials are local Compose defaults, not application login passwords. For another database use its local configuration. Set variables explicitly: `tsx` does not load `.env` for the application automatically. Copying the example alone is insufficient.
 
----
+**Existing Lab 2 database:** use `prisma:migrate:auth`, not reset or a blanket migration command that applies required-credential constraints before provisioning. It checks normalized-email collisions, expands identity fields, provisions missing credentials, then applies required fields and later additive migrations. Keep the existing upload directory with the database. Resolve collisions explicitly; never delete/merge legacy users just to make migration pass.
 
-### 3. Frontend Setup
+Migration/seed show only newly generated initial passwords in a private terminal and require `SAVED` confirmation after secure retention by the operator. Do not redirect, record, screenshot or commit that output. Handover failure leaves pending credentials recoverable on retry; ordinary reruns do not reset already provisioned hashes. Seed creates missing role/reference fixtures and preserves existing roles, activation and Ticket data. There is no universal application password. Sign in using the credentials actually handed over, then change the initial password before normal use.
 
-```bash
-cd client
+In another terminal, from `client`:
 
-# Install dependencies
-npm install
-
-# Configure environment variables
-cp .env.example .env
-
-# Start frontend development server
+```powershell
+npm ci
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
 npm run dev
 ```
 
-The React web application will be accessible at **`http://localhost:5173`**.
+Open **http://localhost:5173**; API **http://localhost:3000**. Use the configured hostname consistently: Origin/CSRF checks are exact. For HTTPS set `AUTH_ALLOW_HTTP_LOCALHOST=false` and the matching frontend origin. A known Ticket can be opened at `/#/tickets/123`; server role/ownership checks still apply.
 
----
+## Testing: dedicated disposable database only
 
-## 🧪 Automated Testing & Verification
+Backend/browser setup resets the test schema. **Never point tests at development port 5433 or real data.** Create the dedicated container once, or start it if it already exists:
 
-Both frontend and backend include comprehensive automated test suites using **Vitest**, **React Testing Library**, and **Supertest**:
+```powershell
+# First creation only; these are local disposable database credentials.
+docker run --name toktickit-lab3-auth-test -e POSTGRES_USER=lab3_test -e POSTGRES_PASSWORD=lab3_test_local -e POSTGRES_DB=toktickit_lab3_test -p 127.0.0.1:55433:5432 -d postgres:17-alpine
+# On later runs:
+docker start toktickit-lab3-auth-test
+```
 
-```bash
-# Run backend integration tests (49 tests)
-cd server
-npm test
+From `server`, in a dedicated test terminal:
 
-# Run frontend unit & component tests (32 tests)
-cd client
+```powershell
+$env:DATABASE_URL='postgresql://lab3_test:lab3_test_local@127.0.0.1:55433/toktickit_lab3_test?schema=public'
+$env:NODE_ENV='test'
+$env:TEST_UPLOAD_ROOT='uploads/lab-03-test'
+$env:AUTH_ALLOW_HTTP_LOCALHOST='true'
+npm test                 # All Lab 1–3 backend suites
+npm run test:lab3        # Lab 3 plus retained Lab 1; excludes Lab 2 suites
+```
+
+From `client`: `npm test` runs all component/unit suites. From `e2e`:
+
+```powershell
+npm ci
+npx playwright install chromium
 npm test
 ```
 
-### Test Suite Status: **81 / 81 Tests Passing (100%)**
+`e2e/playwright.config.ts` explicitly targets **`e2e/lab-03/`**. It supplies the isolated database and starts separate API/UI listeners on **3101/5174**. It refuses an unexpected DATABASE_URL or existing listeners. Run backend and browser tests sequentially against their shared disposable database. Browser accounts/passwords are generated in memory; personal seed credentials are not needed.
 
-```text
-Backend Integration Tests (Vitest + Supertest) — 49 tests:
- ✓ server/tests/lab-02/e2e-flow.test.ts (14 tests)
- ✓ server/tests/lab-02/tickets.create.test.ts (10 tests)
- ✓ server/tests/lab-02/tickets.detail.test.ts (10 tests)
- ✓ server/tests/lab-02/tickets.list.test.ts (6 tests)
- ✓ server/tests/lab-02/requester-auth.test.ts (5 tests)
- ✓ server/tests/lab-02/requesters.api.test.ts (2 tests)
- ✓ server/tests/lab-01/health.test.ts (1 test)
- ✓ server/tests/lab-01/categories.test.ts (1 test)
+Visual capture is opt-in and separate from the 11 regression scenarios:
 
-Frontend Component & Unit Tests (Vitest + RTL) — 32 tests:
- ✓ client/src/tests/lab-02/MyTickets.test.tsx (6 tests)
- ✓ client/src/tests/lab-02/CreateTicket.test.tsx (5 tests)
- ✓ client/tests/lab-02/CreateTicket.test.tsx (5 tests)
- ✓ client/src/tests/lab-02/TicketDetail.test.tsx (5 tests)
- ✓ client/src/tests/lab-02/RequesterContext.test.tsx (4 tests)
- ✓ client/tests/lab-02/RequesterContext.test.tsx (4 tests)
- ✓ client/tests/lab-01/App.test.tsx (3 tests)
-
-Total: 81 passed across 15 test files (100% green)
+```powershell
+# From e2e; same isolated database, fixtures and server guards
+npx playwright test --config playwright.evidence.config.ts
 ```
 
----
+See the [screenshot index](artifacts/lab-03/screenshots/README.md) for states, dimensions, hashes, injected failure labels and inspection notes. Browser caches, traces/test-results, dependency trees, builds, `.env` and uploads are not submission artifacts. Only deliberately sanitized screenshots/metadata belong under `artifacts/`.
 
-## 📡 RESTful API Endpoints Summary
+### Verified baseline and builds
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/health` | Service health check and uptime status |
-| `GET` | `/api/categories` | Retrieve active ticket categories |
-| `GET` | `/api/users` | List available users for simulated switcher |
-| `POST` | `/api/tickets` | Create new ticket with multi-part attachments (`multipart/form-data`) |
-| `GET` | `/api/tickets` | Query requester tickets with status, search, and category filters |
-| `GET` | `/api/tickets/:id` | Fetch ticket detail by ID, including audit logs and attachments |
-| `PATCH` | `/api/tickets/:id/remove` | Soft-remove ticket (`CANCELLED` status) with conflict protection |
-| `GET` | `/api/attachments/:id/download` | Download attachment file with RFC 6266 UTF-8 Content-Disposition |
+Issue #35 runs on 2026-09-19–20 passed **249 backend tests (25 files), 83 client tests (16 files), and 11 Chromium E2E scenarios (5 specs)** with zero failures/skips. Both builds passed. Issue #36 confirmed that all 113 tracked implementation/test/configuration files match that integrated baseline before evidence preparation. These are local results, not a claim that the future final `main` revision passed. [tests.md](docs/lab-03/tests.md) distinguishes passed cases, partial planned coverage and manual delivery items.
 
-Detailed API parameters, schemas, and error codes are documented in [`docs/lab-02/api-spec.md`](docs/lab-02/api-spec.md).
+Run `npm run build` separately in `server` and `client`. Backend output entry: `server/dist/src/index.js`; from `server`, with environment configured, use `node dist/src/index.js`. The existing `npm start` references the older `dist/index.js` layout; this documentation-only increment documents the correct entry without changing package behavior. Client output: `client/dist/` (`npm run preview` previews it locally; configure the matching API origin for authenticated preview requests).
 
----
+## API and documentation
 
-## 📖 Documentation Index
+Authentication uses `/api/auth/csrf`, `/api/auth/login`, `/api/auth/me`, `/api/auth/change-password` and `/api/auth/logout`. Requester Tickets use `/api/tickets`; Staff operations use `/api/staff`; Administrator accounts use `/api/admin/users`. Ticket creation is JSON followed by separate multipart attachment uploads. There is no public persona directory or Requester Ticket-cancellation endpoint. Non-sensitive Lab 1 health/categories remain available.
 
-- [Lab 2 System Specification](docs/lab-02/specification.md) — System scope, actors, and user stories.
-- [Lab 2 API Specification](docs/lab-02/api-spec.md) — REST endpoints, payloads, response codes.
-- [Lab 2 UI/UX Design Specification](docs/lab-02/ui-spec.md) — Zen Green design tokens, wireframes, component rules.
-- [Lab 2 Test Plan & Evidence](docs/lab-02/tests.md) — Test matrix and manual verification checklists.
-- [Lab 2 Peer Review Records](docs/lab-02/reviewer.md) — Peer review logs across PRs #19 through #25.
-- [Lab 2 AI Assistance Reflection](docs/lab-02/ai-use.md) — Agent prompt history, workflow insights, and AI reflection.
+- [Specification, roles, workflow, migration and ACs](docs/lab-03/specification.md)
+- [API paths, payloads, cookies, errors and authorization](docs/lab-03/api-spec.md)
+- [UI contract and responsive/visual checklist](docs/lab-03/ui-spec.md)
+- [Test coverage, commands and execution evidence](docs/lab-03/tests.md)
+- [Screenshot evidence](artifacts/lab-03/screenshots/README.md)
+- [Reviewer record](docs/lab-03/reviewer.md) and [AI-use reflection](docs/lab-03/ai-use.md): reserved for the student's manual completion; intentionally untouched in Issue #36.
+- Historical [Lab 1](docs/lab-01/) and [Lab 2](docs/lab-02/) documents remain prior-increment evidence.
 
----
+## Human release checklist
 
-## 📜 License & Course Attribution
+Required flow: **feature PR -> `lab3-staging` -> reviewed release PR -> `main`**. This work creates no PR, approval, merge or GitHub state change.
 
-Developed for **CPE 334 Introduction to Software Engineering in the Age of AI Agents**, Department of Computer Engineering, King Mongkut's University of Technology Thonburi (KMUTT).
+- Review Issue #36 documentation/screenshots and resolve the partial technical coverage/visual findings in `tests.md` before claiming every AC complete.
+- Complete `reviewer.md` with actual bilateral review evidence and `ai-use.md` with 6–10 useful real prompts and the student's reflection.
+- Obtain required feature review and integrate approved work into `lab3-staging`, then create/review the release PR **from `lab3-staging` to `main`**.
+- After the actual merge, verify final `main` using the documented isolated tests/builds; retain complete output and its actual revision. Confirm the real Issue board/history and approvals.
+- Prepare the course PDF with **Answer Part 1** through **Answer Part 9** in order, linking final repository, board/reviews, contracts, tests, manually completed records and readable screenshots. Do not present workspace evidence as future final-main evidence.

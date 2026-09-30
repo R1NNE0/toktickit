@@ -63,6 +63,21 @@ describe("UI-08 Staff Ticket Detail: Read-Only Context, Claim, Assignment, Prior
     expect(screen.getByText("Requested Priority (by Requester)")).toBeInTheDocument();
   });
 
+  it.each([
+    { owner: assignees[0], label: "Staff Member (IT Staff)" },
+    { owner: assignees[1], label: "Alex Admin (Administrator)" },
+    // Defensive display of a stale DTO; valid deactivation unassigns the owner server-side.
+    { owner: { ...assignees[0], isActive: false }, label: "Staff Member (IT Staff) — Inactive" },
+    { owner: null, label: "Unassigned" },
+  ])("renders current owner as $label", async ({ owner, label }) => {
+    vi.mocked(api.getStaffTicketDetail).mockResolvedValue({ ...baseStaffTicket, owner, ownerId: owner?.id ?? null });
+    render(<StaffTicketDetail ticketId={101} onBack={() => {}} />);
+    await screen.findByText(baseStaffTicket.ticketNumber);
+    const currentOwner = screen.getByText("Current Owner:").parentElement!;
+    expect(within(currentOwner).getByText(label, { exact: true })).toBeInTheDocument();
+    if (owner?.isActive) expect(currentOwner).not.toHaveTextContent("Inactive");
+  });
+
   it("allows Staff to claim unassigned ticket and handles 409 conflict", async () => {
     const claim = vi.spyOn(api, "claimTicket").mockResolvedValue({
       ...baseStaffTicket,

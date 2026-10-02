@@ -110,6 +110,25 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
   }
 
   describe("API-14 Assignees, Detail, Claim & Reassignment", () => {
+    it.each(["IT_STAFF", "ADMINISTRATOR", "unassigned"])("preserves exact OwnerRef for %s across detail reads", async role => {
+      const ownerId = role === "IT_STAFF" ? staffId : role === "ADMINISTRATOR" ? adminId : null;
+      const ticket = await createTestTicket({ ownerId });
+      const expectedOwner = ownerId === null ? null : await db.user.findUniqueOrThrow({
+        where: { id: ownerId }, select: { id: true, name: true, role: true, isActive: true },
+      });
+      if (expectedOwner) expect(expectedOwner.isActive).toBe(true);
+      for (const [url, headers] of [
+        [`/api/staff/tickets/${ticket.id}`, staffHeaders],
+        [`/api/tickets/${ticket.id}`, requesterHeadersMap],
+        [`/api/tickets/${ticket.id}`, adminHeaders],
+      ] as const) {
+        const response = await request(app).get(url).set(headers).expect(200);
+        // Exact equality catches both omitted metadata and accidental security-field leakage.
+        expect(response.body.owner).toEqual(expectedOwner);
+        expect(response.body.ownerId).toBe(ownerId);
+      }
+    });
+
     it("returns active IT_STAFF and ADMINISTRATOR assignees sorted by name then id", async () => {
       const res = await request(app)
         .get("/api/staff/assignees")
@@ -167,6 +186,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
 
       expect(res.body.ownerId).toBe(staffId);
       expect(res.body.owner.id).toBe(staffId);
+      expect(res.body.owner).toEqual({ id: staffId, name: expect.any(String), role: "IT_STAFF", isActive: true });
     });
 
     it("rejects claim with 409 ALREADY_ASSIGNED when ticket is already assigned", async () => {

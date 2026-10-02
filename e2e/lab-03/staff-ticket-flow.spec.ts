@@ -14,11 +14,24 @@ test('E2E-02 Staff queue, ownership, discussion, resolution cycle and Requester 
   await page.getByRole('combobox', { name: /^Owner/ }).selectOption('unassigned');
   await page.getByLabel('Sort By').selectOption('itPriority'); await page.getByLabel('Direction').selectOption('asc');
   await page.getByRole('button', { name: 'Open Detail ' + work.ticketNumber, exact: true }).click();
+  const ownerLabel = page.getByText('Current Owner:', { exact: true }).locator('..');
+  async function expectOwnerOnFreshDetail(label: string) {
+    const detail = await page.context().newPage();
+    try {
+      await detail.goto('/#/tickets/' + work.id);
+      await expect(detail.getByText('Current Owner:', { exact: true }).locator('..')).toHaveText(label);
+    } finally { await detail.close(); }
+  }
+  await expect(ownerLabel).toHaveText('Current Owner: Unassigned');
   await page.getByRole('button', { name: 'Claim Ticket', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'successfully claimed' })).toBeVisible();
+  await expect(ownerLabel).toHaveText(`Current Owner: ${actors.staff.name} (IT Staff)`);
+  await expectOwnerOnFreshDetail(`Current Owner: ${actors.staff.name} (IT Staff)`);
   await page.getByLabel('Assign Owner').selectOption(String(actors.admin.id));
   await page.getByRole('button', { name: 'Save Owner' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'owner updated' })).toBeVisible();
+  await expect(ownerLabel).toHaveText(`Current Owner: ${actors.admin.name} (Administrator)`);
+  await expectOwnerOnFreshDetail(`Current Owner: ${actors.admin.name} (Administrator)`);
   await page.getByLabel('IT Priority', { exact: true }).selectOption('CRITICAL');
   await page.getByRole('button', { name: 'Save Priority' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'IT Priority updated' })).toBeVisible();

@@ -1,0 +1,1071 @@
+{
+  "capturedAt": "2026-09-22T09:31:40.247Z",
+  "revision": "8fdcc590a9552b912dc3034a524dde0f35bc27c2",
+  "branch": "feat/lab3-final-release-evidence",
+  "source": "Unmodified integrated product; synthetic isolated database; browser-generated PNGs",
+  "command": "npx.cmd playwright test --config playwright.evidence.config.ts",
+  "captures": [
+    {
+      "file": "authentication/login-desktop.png",
+      "role": "Signed out",
+      "state": "login",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "381edb632b1b58d6b433efa531e9e9ba5be1d7dbdc9e70119cae5794e916a901",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "authentication/login-validation-desktop.png",
+      "role": "Signed out",
+      "state": "login-validation",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "ce3353677fd169b3ed3d0448398b63b5580ba6d655de86b1706f95960fb67f17",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "authentication/login-failure-desktop.png",
+      "role": "Signed out",
+      "state": "login-failure",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "1569fb4c0e021bfb5e73b97708870dd9a17f2076a2f5656976332850b83e1b82",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "authentication/mandatory-change-desktop.png",
+      "role": "Restricted Requester",
+      "state": "mandatory-change",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "cdd110e7f152978c6dbbc073c84767aaac03485ad38768163f7ca160638a8922",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/my-tickets-empty-desktop.png",
+      "role": "Requester",
+      "state": "my-tickets-empty",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 977
+      },
+      "sha256": "d66fbc70ec788c5d322c74c3b6c2e982d213dfcaabe380c0598247443858bcd4",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/create-ticket-desktop.png",
+      "role": "Requester",
+      "state": "create-ticket",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 1296
+      },
+      "sha256": "e678f0bac0c863e33072881a47d553185e3292750f262bac945f6f7516071d73",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/create-success-desktop.png",
+      "role": "Requester",
+      "state": "create-success",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 893
+      },
+      "sha256": "9a7ea8265bbc5c428452e8d7ab57b6e9a2c6b93a339c0f43e366514a01fdd1ed",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/ticket-detail-desktop.png",
+      "role": "Requester",
+      "state": "ticket-detail",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 1731
+      },
+      "sha256": "df3ecfdd1783bcb8bf5e5adf976c0f24dbdeee4c88f0aa1bc6071c5d1530bbdb",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/resolution-confirmation-desktop.png",
+      "role": "Requester",
+      "state": "resolution-confirmation",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "acabf64986d16d67ca6781ed2c515aa9c7c73b65d718c159b4d22f388bb2ff7f",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "requester-regression/resolution-indicated-desktop.png",
+      "role": "Requester",
+      "state": "resolution-indicated",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 1813
+      },
+      "sha256": "75b6275bc6b5bcc43adfa209b9e8af350eda2435373bd6301430591ecef9ced4",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/my-tickets-desktop.png",
+      "role": "Requester",
+      "state": "my-tickets",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 942
+      },
+      "sha256": "9cfbb91aabdce247dad9df411e3033f61f1e5cb9a8bb9adfe21fc81c3ff157de",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-queue/queue-desktop.png",
+      "role": "IT Staff",
+      "state": "queue",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 2003
+      },
+      "sha256": "f2eeff5a42c3d7ca97911beac559ed0db545fdf6955602341358431806076e8d",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-queue/no-results-desktop.png",
+      "role": "IT Staff",
+      "state": "no-results",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 986
+      },
+      "sha256": "03c8715059e4a1eb108aee3c61c1ebc395e4233e5d1cec98c7422133b624f631",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-queue/loading-desktop.png",
+      "role": "IT Staff",
+      "state": "loading",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 828
+      },
+      "sha256": "0d1049a9eb75ae621a6fa982745882e0a70db5c0f3410e946704f5ca4364394b",
+      "simulation": "Request deliberately held, then released",
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-queue/safe-failure-desktop.png",
+      "role": "IT Staff",
+      "state": "safe-failure",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 862
+      },
+      "sha256": "26e2b4b2395c2eeb51e0a6fe072331bc7679432c388fe1d42dfec4c8fc9b90e1",
+      "simulation": "Injected safe HTTP 500, no successful data fabricated",
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-ticket-detail/detail-desktop.png",
+      "role": "IT Staff",
+      "state": "detail",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 1934
+      },
+      "sha256": "0eccc00092078c31740638ea920624d6c96269fdc54109af1e4743d3a5b4bf2f",
+      "simulation": null,
+      "scope": "Full page",
+      "capturedAt": "2026-09-25T21:29:44.355Z",
+      "revision": "8fdcc590a9552b912dc3034a524dde0f35bc27c2",
+      "source": "Working tree with Issue #36 OwnerRef fix; synthetic isolated database"
+    },
+    {
+      "file": "staff-ticket-detail/status-confirmation-desktop.png",
+      "role": "IT Staff",
+      "state": "status-confirmation",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "09f364ee59092b53b3b6f4bd39a6f423c83ba54bb2d783afde9585bdf395e041",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present",
+      "capturedAt": "2026-09-25T21:29:44.355Z",
+      "revision": "8fdcc590a9552b912dc3034a524dde0f35bc27c2",
+      "source": "Working tree with Issue #36 OwnerRef fix; synthetic isolated database"
+    },
+    {
+      "file": "user-management/directory-desktop.png",
+      "role": "Administrator",
+      "state": "directory",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 801
+      },
+      "sha256": "392106b3e94cc457dd0d3afa1d7cb26cdc319f307a43445a4f1617900449d2f0",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "user-management/create-user-desktop.png",
+      "role": "Administrator",
+      "state": "create-user",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "f7d1332cfb54add6f2fe2c03eb324d9e9f0ecb663447903fe1a05dcee48a9aef",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "user-management/edit-user-desktop.png",
+      "role": "Administrator",
+      "state": "edit-user",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "8d751808ba13c894112c7e21e4a5a1abae41682981d2f412daff8f505c3bb4e6",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "user-management/initial-password-reset-desktop.png",
+      "role": "Administrator",
+      "state": "initial-password-reset",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "db316532d201cddbb6b4503934ffd2eca5b3e0b84bf96d540a2db98f981fd9a3",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "user-management/self-deactivation-protected-desktop.png",
+      "role": "Administrator",
+      "state": "self-deactivation-protected",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "71c372408c770897b51b8389202dbacb2ec3712eb4e1587aea72c3d6c35f675d",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "staff-ticket-detail/administrator-permitted-detail-desktop.png",
+      "role": "Administrator",
+      "state": "administrator-permitted-detail",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "image": {
+        "width": 1280,
+        "height": 1661
+      },
+      "sha256": "172512d347ad088d3291fdc16aace87f440477b5652156dbd769715b57ef5ad1",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "authentication/login-tablet.png",
+      "role": "Signed out",
+      "state": "login",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "8d35d45446af63edb81a98cf8800cc62ff968c78a88f77d5021e193b18319dfc",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "authentication/login-validation-tablet.png",
+      "role": "Signed out",
+      "state": "login-validation",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "7e5841637a86c8e726cb983f7a2130cdbe9f7f92f860579037ba4e9d39387525",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "authentication/mandatory-change-tablet.png",
+      "role": "Restricted Requester",
+      "state": "mandatory-change",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "32d5c0f1418ddbcaa41401561f1adc42cc4fab82dc67ac74e4f960a6b3f26abd",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/my-tickets-empty-tablet.png",
+      "role": "Requester",
+      "state": "my-tickets-empty",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "65dae0165d142a540a5e9024c6ffbc3c5eb8d6f21dd725b4a92e369df83f0a15",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/create-ticket-tablet.png",
+      "role": "Requester",
+      "state": "create-ticket",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1340
+      },
+      "sha256": "17fbb731805ef5b0389a9fca5e8f6f3a2cbebd2abcdd526b47d295026f07385c",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/create-success-tablet.png",
+      "role": "Requester",
+      "state": "create-success",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "f4ced23afd728ba400aacf54bdd26ca0b707f272594044ed167e7f406f938279",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/ticket-detail-tablet.png",
+      "role": "Requester",
+      "state": "ticket-detail",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1844
+      },
+      "sha256": "e04d70caa05026cb797a187f1826cc0dd2afe2a19809da3b24fc12b79ce6d22c",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/resolution-confirmation-tablet.png",
+      "role": "Requester",
+      "state": "resolution-confirmation",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "b3968af424bf36b16308bf4fb09c867c7edb8a62696b80b3013d1c784c9baf99",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "requester-regression/resolution-indicated-tablet.png",
+      "role": "Requester",
+      "state": "resolution-indicated",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1926
+      },
+      "sha256": "d4515b7a743059ad9f0209d234f7d92a0cc653fbd969ca0da0841be929ee9bed",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/my-tickets-tablet.png",
+      "role": "Requester",
+      "state": "my-tickets",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "e3c67fa02f27650a79fadcc685f7b97f7313189114b723cf46ae81f70cd3f42c",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/my-tickets-tablet-right.png",
+      "role": "Requester",
+      "state": "my-tickets",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "d3996e5fbdc9aca898a0efe906b71bc8e64376776afbe417740faa38239cc32b",
+      "simulation": null,
+      "scope": "Full page with horizontally scrollable table at its right edge; paired with main image"
+    },
+    {
+      "file": "staff-queue/queue-tablet.png",
+      "role": "IT Staff",
+      "state": "queue",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 5251
+      },
+      "sha256": "569ff338735d5729cb6a067cd1def540e660665ef3c7392c182aeb27e19655c7",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-queue/no-results-tablet.png",
+      "role": "IT Staff",
+      "state": "no-results",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1073
+      },
+      "sha256": "d624798837ed7c8a8fcfbd8587eaac347236ab6c0deb3413dcec763487bf9804",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-ticket-detail/detail-tablet.png",
+      "role": "IT Staff",
+      "state": "detail",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 2415
+      },
+      "sha256": "6b1b99c4ad250dbcb2082320a7857188caf25df6d843215cc09f035e9c0775aa",
+      "simulation": null,
+      "scope": "Full page",
+      "capturedAt": "2026-09-25T21:29:44.355Z",
+      "revision": "8fdcc590a9552b912dc3034a524dde0f35bc27c2",
+      "source": "Working tree with Issue #36 OwnerRef fix; synthetic isolated database"
+    },
+    {
+      "file": "staff-ticket-detail/status-confirmation-tablet.png",
+      "role": "IT Staff",
+      "state": "status-confirmation",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "ec8e4044008f2107e2d730a01e51ab3a282c16084939b529166f72d5b0b522f0",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present",
+      "capturedAt": "2026-09-25T21:29:44.355Z",
+      "revision": "8fdcc590a9552b912dc3034a524dde0f35bc27c2",
+      "source": "Working tree with Issue #36 OwnerRef fix; synthetic isolated database"
+    },
+    {
+      "file": "user-management/directory-tablet.png",
+      "role": "Administrator",
+      "state": "directory",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "53ad4721bf3a62c7e21f3ff287d7b4b12823d2f0704361e1d3cbcc6826de3f85",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "user-management/create-user-tablet.png",
+      "role": "Administrator",
+      "state": "create-user",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "67bc3b6652e4df10972930aa4a5b154dcaa57aed108bf80990cd7c3a29458d88",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "user-management/edit-user-tablet.png",
+      "role": "Administrator",
+      "state": "edit-user",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "c4c1811f5175fe0614762a0922ec0427fb9e334d9837a070abe29b6fdb3baf50",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "user-management/initial-password-reset-tablet.png",
+      "role": "Administrator",
+      "state": "initial-password-reset",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "a7ef86bddf25b64ceb8f98084e276fe99ea27c1af57cb14ac30df9cd05c062c4",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "user-management/self-deactivation-protected-tablet.png",
+      "role": "Administrator",
+      "state": "self-deactivation-protected",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "02dc53a5c053d3454a537af036cea9690e896370952a78afec9f6f177bfe7d5b",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "staff-ticket-detail/administrator-permitted-detail-tablet.png",
+      "role": "Administrator",
+      "state": "administrator-permitted-detail",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "image": {
+        "width": 768,
+        "height": 1767
+      },
+      "sha256": "350567604a6a2392be5e8074b02674d055cb4b7fafe647be0f6ded5a8fba77a0",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "authentication/login-mobile.png",
+      "role": "Signed out",
+      "state": "login",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "2848d228ed3843c9a4bad84adbe8f45a8d647c0cb9837e1eeb72d2dde1eba26b",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "authentication/login-validation-mobile.png",
+      "role": "Signed out",
+      "state": "login-validation",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "0b4c0d73d0a5e24cbb29cd6f1c7eca41468f868d554f36965179f2a156b9ab56",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "authentication/mandatory-change-mobile.png",
+      "role": "Restricted Requester",
+      "state": "mandatory-change",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 867
+      },
+      "sha256": "6397876ba87c08b8ddcd30d67ddd165995f4f35d17bdeed85fc2163dbd6b466c",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/my-tickets-empty-mobile.png",
+      "role": "Requester",
+      "state": "my-tickets-empty",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 1396
+      },
+      "sha256": "fdb177c0faab68907f4610711dc12934410cfea5bfcc579c2b8195eec467cc18",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/create-ticket-mobile.png",
+      "role": "Requester",
+      "state": "create-ticket",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 1637
+      },
+      "sha256": "6df043be7a21068139c86bdf78468c79e7b2d0140e62ba5a0845e324d7263f9d",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/create-success-mobile.png",
+      "role": "Requester",
+      "state": "create-success",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 1274
+      },
+      "sha256": "dcec567c832c1135726e19dd40e004972282e540e6b1fccc1d4c4ffba49c405f",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/ticket-detail-mobile.png",
+      "role": "Requester",
+      "state": "ticket-detail",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 2549
+      },
+      "sha256": "4db81432bc493848de764046b8bd57abe591ffa3a354f65df69544f20ec509c8",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/resolution-confirmation-mobile.png",
+      "role": "Requester",
+      "state": "resolution-confirmation",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "a6ec937cd6cfcd227a5dcb2d2d3aef04fb2f663f3a728080f5d2929b507aa908",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "requester-regression/resolution-indicated-mobile.png",
+      "role": "Requester",
+      "state": "resolution-indicated",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 2711
+      },
+      "sha256": "9d65238dec99692b728ab2e91c89b777f13df46046525a29fc0b3b9c1f803af0",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-regression/my-tickets-mobile.png",
+      "role": "Requester",
+      "state": "my-tickets",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 1398
+      },
+      "sha256": "bfd3a782f4a2697fcaad49654ceb4fb0b46e8bb3e200b7fc2d82dce44f9988da",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-queue/queue-mobile.png",
+      "role": "IT Staff",
+      "state": "queue",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 7712
+      },
+      "sha256": "93c6a083020517fa73b462b99c565010f6438f7255329604a5acd9b9c1741a18",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-queue/no-results-mobile.png",
+      "role": "IT Staff",
+      "state": "no-results",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 1614
+      },
+      "sha256": "0c5597f25f1df41da79957282c18e470c30b954d89dec26be552aa4970803d8d",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-ticket-detail/detail-mobile.png",
+      "role": "IT Staff",
+      "state": "detail",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 3384
+      },
+      "sha256": "455b9c371f614f501ab54dd8fef0b8fb536f1e7f96e8aba090b23caccd49775c",
+      "simulation": null,
+      "scope": "Full page",
+      "capturedAt": "2026-09-25T21:29:44.355Z",
+      "revision": "8fdcc590a9552b912dc3034a524dde0f35bc27c2",
+      "source": "Working tree with Issue #36 OwnerRef fix; synthetic isolated database"
+    },
+    {
+      "file": "staff-ticket-detail/status-confirmation-mobile.png",
+      "role": "IT Staff",
+      "state": "status-confirmation",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "7ef0e13f51e509311703cb7d23a8100303349fab916383a96f0bf66b57968fdd",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present",
+      "capturedAt": "2026-09-25T21:29:44.355Z",
+      "revision": "8fdcc590a9552b912dc3034a524dde0f35bc27c2",
+      "source": "Working tree with Issue #36 OwnerRef fix; synthetic isolated database"
+    },
+    {
+      "file": "user-management/directory-mobile.png",
+      "role": "Administrator",
+      "state": "directory",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 1746
+      },
+      "sha256": "9d36207d5bd3a438f436f7f2d6452669d117f5cb562b68144579411eac3c3049",
+      "simulation": null,
+      "scope": "Full page"
+    },
+    {
+      "file": "user-management/create-user-mobile.png",
+      "role": "Administrator",
+      "state": "create-user",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "21bffecb08c9658a8ea4328e91593b4f355ac1c921da79ab2fd0ee2ee903bb7c",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "user-management/edit-user-mobile.png",
+      "role": "Administrator",
+      "state": "edit-user",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "e73fb1fa502fc2cc0958f3a57a0083a7531613eea46b3aa0d9e46e4883d62549",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "user-management/initial-password-reset-mobile.png",
+      "role": "Administrator",
+      "state": "initial-password-reset",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "12d485cecec944ea1971bdc4c3351958f1572a1710955a3e5507c13fc0b21bef",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "user-management/self-deactivation-protected-mobile.png",
+      "role": "Administrator",
+      "state": "self-deactivation-protected",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "ddb502f38373e71ade241de7436d69784f81bfdc60ef7c29475298a7df47baa4",
+      "simulation": null,
+      "scope": "Dialog viewport; see paired lower image if present"
+    },
+    {
+      "file": "staff-ticket-detail/administrator-permitted-detail-mobile.png",
+      "role": "Administrator",
+      "state": "administrator-permitted-detail",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "image": {
+        "width": 375,
+        "height": 2457
+      },
+      "sha256": "2b405ec0b0afc0291abdd3749460e3546085f5b274dcf730a6743f64cd0f01fe",
+      "simulation": null,
+      "scope": "Full page"
+    }
+  ],
+  "updates": [
+    {
+      "capturedAt": "2026-09-25T21:29:44.355Z",
+      "revision": "8fdcc590a9552b912dc3034a524dde0f35bc27c2",
+      "source": "Working tree with Issue #36 OwnerRef fix; synthetic isolated database",
+      "command": "$env:LAB3_EVIDENCE_OWNER_ONLY='1'; npx.cmd playwright test --config playwright.evidence.config.ts",
+      "files": [
+        "staff-ticket-detail/detail-desktop.png",
+        "staff-ticket-detail/status-confirmation-desktop.png",
+        "staff-ticket-detail/detail-tablet.png",
+        "staff-ticket-detail/status-confirmation-tablet.png",
+        "staff-ticket-detail/detail-mobile.png",
+        "staff-ticket-detail/status-confirmation-mobile.png"
+      ],
+      "applicationSha256": {
+        "server/src/attachments.ts": "d90671fba2f99b7f3213a557fb1442e5626952460ba296a95ad40c5c8e6ce600",
+        "server/src/staffTicket.ts": "894d62a850ca5a96506d901197fc1c9e38e9cb8f3495c1f68e7096453a93368c"
+      }
+    }
+  ]
+}

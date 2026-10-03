@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Ticket,
   Category,
@@ -6,7 +6,7 @@ import {
   getTickets,
   PaginationMeta,
 } from "../api.js";
-import { useRequester } from "../context/RequesterContext.js";
+import { useAuth } from "../context/AuthContext.js";
 
 interface MyTicketsProps {
   onNavigateCreate?: () => void;
@@ -17,7 +17,10 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
   onNavigateCreate,
   onSelectTicket,
 }) => {
-  const { currentRequester } = useRequester();
+  const { user: currentRequester } = useAuth();
+  const generation = useRef(0);
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Filter States
   const [search, setSearch] = useState<string>("");
@@ -68,7 +71,9 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
   const fetchTickets = useCallback(async () => {
     if (!currentRequester) return;
 
+    const version = ++generation.current;
     setLoading(true);
+    setTickets([]);
     setError(null);
     try {
       const categoryIdNum =
@@ -81,22 +86,24 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
         priority: selectedPriority,
         page,
         pageSize,
-        sortBy: "createdAt",
-        sortOrder: "desc",
+        sortBy,
+        sortOrder,
       });
 
+      if (version !== generation.current) return;
       setTickets(res.data);
       setPagination(res.pagination);
     } catch (err: unknown) {
+      if (version !== generation.current) return;
       const msg =
         err instanceof Error ? err.message : "Failed to load support tickets";
       setError(msg);
       setTickets([]);
     } finally {
-      setLoading(false);
+      if (version === generation.current) setLoading(false);
     }
   }, [
-    currentRequester,
+    currentRequester, sortBy, sortOrder,
     debouncedSearch,
     selectedStatus,
     selectedCategory,
@@ -108,6 +115,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
   // Refetch when filters or requester changes
   useEffect(() => {
     fetchTickets();
+    return () => { generation.current++; };
   }, [fetchTickets]);
 
   // Clear filters handler
@@ -173,8 +181,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
   };
 
   const activeAttachmentCount = (ticket: Ticket) => {
-    if (!ticket.attachments) return 0;
-    return ticket.attachments.filter((a) => !a.isRemoved).length;
+    return ticket.attachmentCount ?? 0;
   };
 
   return (
@@ -186,7 +193,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
             My Support Tickets
           </h2>
           <p className="text-muted small mb-0">
-            View, track, and monitor tickets submitted under your persona.
+            View, track, and monitor tickets submitted by you.
           </p>
         </div>
         {onNavigateCreate && (
@@ -203,6 +210,16 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
         )}
       </div>
 
+      <div className="d-flex flex-wrap gap-3 mb-3">
+        <label>Sort By<select className="form-select" value={sortBy} onChange={e => { setSortBy(e.target.value); setPage(1); }}>
+          <option value="createdAt">Created date</option><option value="updatedAt">Updated date</option>
+          <option value="ticketNumber">Ticket number</option><option value="requestedPriority">Requested priority</option>
+          <option value="currentStatus">Status</option>
+        </select></label>
+        <label>Direction<select className="form-select" value={sortOrder} onChange={e => { setSortOrder(e.target.value as "asc" | "desc"); setPage(1); }}>
+          <option value="desc">Descending</option><option value="asc">Ascending</option>
+        </select></label>
+      </div>
       {/* Filter and Search Bar Card */}
       <div className="zen-card mb-4">
         <div className="row g-3 align-items-end">
@@ -335,7 +352,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
           </div>
           <p className="text-muted small mb-0">Loading your tickets...</p>
         </div>
-      ) : tickets.length === 0 ? (
+      ) : error ? null : tickets.length === 0 ? (
         /* Empty States */
         <div className="zen-card text-center py-5">
           {hasActiveFilters ? (
@@ -387,10 +404,10 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
                   <th style={{ width: "160px" }}>Ticket #</th>
                   <th>Summary</th>
                   <th>Category</th>
-                  <th>Priority</th>
+                  <th>Priorities</th>
                   <th>Status</th>
                   <th>Files</th>
-                  <th>Created</th>
+                  <th>Updated</th>
                   <th style={{ width: "100px", textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
@@ -423,6 +440,8 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
                         <span className={getPriorityBadgeClass(t.requestedPriority)}>
                           {t.requestedPriority}
                         </span>
+                        <div className="small text-muted">Requested</div>
+                        <div className="small">IT Priority: <span className={getPriorityBadgeClass(t.itPriority)}>{t.itPriority}</span></div>
                       </td>
                       <td>
                         <span className={getStatusBadgeClass(t.currentStatus)}>
@@ -446,7 +465,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
                         )}
                       </td>
                       <td>
-                        <span className="small text-muted">{formatDate(t.createdAt)}</span>
+                        <span className="small text-muted">{formatDate(t.updatedAt)}</span>
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <button
@@ -494,6 +513,8 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
                     <span className={getPriorityBadgeClass(t.requestedPriority)}>
                       {t.requestedPriority}
                     </span>
+                    <span className="small text-muted">Requested Priority</span>
+                    <span className="small">IT Priority: <span className={getPriorityBadgeClass(t.itPriority)}>{t.itPriority}</span></span>
                     {attachCount > 0 && (
                       <span
                         className="badge"
@@ -506,7 +527,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
                       </span>
                     )}
                     <span className="small text-muted ms-auto">
-                      {formatDate(t.createdAt)}
+                      {formatDate(t.updatedAt)}
                     </span>
                   </div>
 

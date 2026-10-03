@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { CreateTicket } from "../../src/components/CreateTicket.js";
 import * as api from "../../src/api.js";
 
+vi.mock("../../src/context/AuthContext.js", () => ({ useAuth: () => ({ user: { id: 1, name: "Jennifer Anderson", email: "jennifer.anderson@example.com", role: "REQUESTER", isActive: true, mustChangePassword: false } }) }));
+
 const mockCategories: api.Category[] = [
   { id: 1, name: "Hardware", isActive: true },
   { id: 2, name: "Software", isActive: true },

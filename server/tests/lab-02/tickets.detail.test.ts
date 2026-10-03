@@ -1,3 +1,4 @@
+import { requesterHeaders } from "../lab-03/legacy-session.js";
 import { describe, it, expect, beforeAll } from "vitest";
 import request from "supertest";
 import path from "path";
@@ -15,10 +16,10 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
 
   beforeAll(async () => {
     // 1. Get seeded requesters
-    const jennifer = await prisma.requesterUser.findUnique({
+    const jennifer = await prisma.user.findUnique({
       where: { email: "jennifer.anderson@example.com" },
     });
-    const michael = await prisma.requesterUser.findUnique({
+    const michael = await prisma.user.findUnique({
       where: { email: "michael.brown@example.com" },
     });
 
@@ -35,7 +36,7 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
     jenniferTicketId = ticket101!.id;
 
     // 3. Ensure a physical file exists for attachment download test
-    const uploadDir = path.resolve(process.cwd(), "uploads/lab-02");
+    const uploadDir = path.resolve(process.cwd(), process.env.TEST_UPLOAD_ROOT!);
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -60,7 +61,7 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
     it("returns 200 OK with full details and attachments for owned ticket (API-06 / FR-07 / AC-04)", async () => {
       const res = await request(app)
         .get(`/api/tickets/${jenniferTicketId}`)
-        .set("x-requester-id", jenniferId.toString());
+        .set(await requesterHeaders(jenniferId));
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("id", jenniferTicketId);
@@ -87,21 +88,20 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
       expect(found.isRemoved).toBe(false);
     });
 
-    it("rejects cross-requester access with 403 Forbidden when Requester B attempts to view Requester A's ticket (API-07 / FR-11 / AC-06)", async () => {
+    it("rejects cross-requester access with safe 404 when Requester B attempts to view Requester A's ticket (API-07 / FR-11 / AC-06)", async () => {
       // Michael attempts to fetch Jennifer's ticket
       const res = await request(app)
         .get(`/api/tickets/${jenniferTicketId}`)
-        .set("x-requester-id", michaelId.toString());
+        .set(await requesterHeaders(michaelId));
 
-      expect(res.status).toBe(403);
-      expect(res.body).toHaveProperty("error");
-      expect(res.body.error).toMatch(/Forbidden|permission/i);
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe("NOT_FOUND");
     });
 
     it("returns 404 Not Found for non-existent ticket ID", async () => {
       const res = await request(app)
         .get("/api/tickets/99999999")
-        .set("x-requester-id", jenniferId.toString());
+        .set(await requesterHeaders(jenniferId));
 
       expect(res.status).toBe(404);
       expect(res.body).toHaveProperty("error", "Ticket not found");
@@ -110,7 +110,7 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
     it("returns 400 Bad Request for non-numeric ticket ID", async () => {
       const res = await request(app)
         .get("/api/tickets/invalid-id")
-        .set("x-requester-id", jenniferId.toString());
+        .set(await requesterHeaders(jenniferId));
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("error", "Invalid ticket ID");
@@ -121,7 +121,7 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
     it("streams binary download for active attachment on owned ticket (API-11 / FR-09 / AC-08)", async () => {
       const res = await request(app)
         .get(`/api/attachments/${activeAttachmentId}/download`)
-        .set("x-requester-id", jenniferId.toString());
+        .set(await requesterHeaders(jenniferId));
 
       expect(res.status).toBe(200);
       expect(res.headers["content-type"]).toMatch(/application\/pdf/i);
@@ -134,11 +134,10 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
     it("blocks download with 403 Forbidden when Requester B attempts to download Requester A's file", async () => {
       const res = await request(app)
         .get(`/api/attachments/${activeAttachmentId}/download`)
-        .set("x-requester-id", michaelId.toString());
+        .set(await requesterHeaders(michaelId));
 
-      expect(res.status).toBe(403);
-      expect(res.body).toHaveProperty("error");
-      expect(res.body.error).toMatch(/permission|Forbidden/i);
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe("NOT_FOUND");
     });
   });
 
@@ -146,28 +145,28 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
     it("validates that removal reason is required and non-empty", async () => {
       const res = await request(app)
         .delete(`/api/attachments/${activeAttachmentId}`)
-        .set("x-requester-id", jenniferId.toString())
+        .set(await requesterHeaders(jenniferId))
         .send({ reason: "   " });
 
       expect(res.status).toBe(400);
       expect(res.body.error).toMatch(/reason is required/i);
     });
 
-    it("blocks removal with 403 Forbidden when another requester attempts to delete", async () => {
+    it("blocks removal with safe 404 when another requester attempts to delete", async () => {
       const res = await request(app)
         .delete(`/api/attachments/${activeAttachmentId}`)
-        .set("x-requester-id", michaelId.toString())
+        .set(await requesterHeaders(michaelId))
         .send({ reason: "Unauthorized attempt" });
 
-      expect(res.status).toBe(403);
-      expect(res.body.error).toMatch(/permission|Forbidden/i);
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe("NOT_FOUND");
     });
 
     it("soft-removes attachment with reason, updates DB, and keeps physical file on disk (API-12 / FR-10 / AC-08)", async () => {
       const removalReason = "Attached outdated diagnostics report by mistake";
       const res = await request(app)
         .delete(`/api/attachments/${activeAttachmentId}`)
-        .set("x-requester-id", jenniferId.toString())
+        .set(await requesterHeaders(jenniferId))
         .send({ reason: removalReason });
 
       expect(res.status).toBe(200);
@@ -192,7 +191,7 @@ describe("Lab 2 (Issue #6) - Ticket Detail, Attachment Download & Soft Removal",
     it("permanently blocks subsequent download of soft-removed attachment with 403 Forbidden (API-13 / BR-08 / AC-08)", async () => {
       const res = await request(app)
         .get(`/api/attachments/${activeAttachmentId}/download`)
-        .set("x-requester-id", jenniferId.toString());
+        .set(await requesterHeaders(jenniferId));
 
       expect(res.status).toBe(403);
       expect(res.body).toHaveProperty("error");

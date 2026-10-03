@@ -1,0 +1,58 @@
+import { test, expect, login, navigate, apiURL, mutation, ticket } from './fixtures.js';
+test('E2E-04 create, list, detail, real attachment bytes, removal and cross-Requester privacy', async ({ page, browser, actors }) => {
+  const hidden = await ticket(actors.other);
+  await login(page, actors.requester); await navigate(page, 'Create Ticket');
+  await page.locator('#ticket-category').selectOption({ label: 'Hardware' });
+  await page.locator('#ticket-related-system').selectOption({ label: 'Email' });
+  await page.locator('#ticket-summary').fill('Requester browser regression');
+  await page.locator('#ticket-description').fill('A real authenticated submission');
+  const bytes = Buffer.from('%PDF-1.4 synthetic verification document');
+  await page.getByLabel('File Attachments').setInputFiles({ name: 'request.pdf', mimeType: 'application/pdf', buffer: bytes });
+  const made = page.waitForResponse(response => response.url().endsWith('/api/tickets') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Create Ticket', exact: true }).last().click();
+  const created = await (await made).json();
+  await expect(page.getByText('Ticket Created Successfully!')).toBeVisible();
+  await page.getByRole('button', { name: 'View Ticket Detail' }).click();
+  await expect(page.getByRole('button', { name: 'Download request.pdf' })).toBeVisible();
+  const detail = await (await page.request.get(apiURL + `/api/tickets/${created.id}`)).json();
+  const attachment = detail.attachments[0];
+  const download = await page.request.get(apiURL + `/api/attachments/${attachment.id}/download`);
+  expect(await download.body()).toEqual(bytes);
+  const browserDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download request.pdf' }).click();
+  expect((await browserDownload).suggestedFilename()).toBe('request.pdf');
+  await page.getByLabel('Add Attachment').setInputFiles({ name: 'second.pdf', mimeType: 'application/pdf', buffer: bytes });
+  await expect(page.getByRole('button', { name: 'Download second.pdf' })).toBeVisible();
+  await page.getByLabel('Public comment', { exact: true }).fill('Requester public update <script>plain text</script>');
+  await page.getByRole('button', { name: 'Post Comment', exact: true }).click();
+  await expect(page.getByText('Requester public update <script>plain text</script>', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Remove request.pdf' }).click();
+  await page.getByLabel('Reason for Removal', { exact: false }).fill('Superseded document');
+  await page.getByRole('button', { name: 'Confirm Soft Removal' }).click();
+  await expect(page.getByRole('button', { name: 'Download request.pdf' })).toHaveCount(0);
+  expect((await page.request.get(apiURL + `/api/attachments/${attachment.id}/download`)).status()).toBe(403);
+  await navigate(page, 'My Tickets'); await expect(page.getByText(created.ticketNumber).first()).toBeVisible();
+  expect((await page.request.get(apiURL + `/api/tickets/${hidden.id}`)).status()).toBe(404);
+  const context = await browser.newContext({ baseURL: 'http://localhost:5174' }), other = await context.newPage();
+  try {
+    await login(other, actors.other);
+    const cross = await other.request.get(apiURL + `/api/tickets/${created.id}`), absent = await other.request.get(apiURL + '/api/tickets/2147483647');
+    expect(cross.status()).toBe(404); expect(await cross.json()).toEqual(await absent.json());
+    expect((await other.request.get(apiURL + `/api/attachments/${attachment.id}/download`)).status()).toBe(404);
+    expect((await mutation(other.request, 'POST', `/tickets/${created.id}/comments`, { body: 'Forbidden' })).status()).toBe(404);
+  } finally { await context.close(); }
+});
+test('E2E-04 partial upload failure preserves the created Ticket and permits a safe retry', async ({ page, actors }) => {
+  await login(page, actors.requester); await navigate(page, 'Create Ticket');
+  await page.locator('#ticket-category').selectOption({ label: 'Hardware' });
+  await page.locator('#ticket-related-system').selectOption({ label: 'Email' });
+  await page.locator('#ticket-summary').fill('Partial upload browser regression'); await page.locator('#ticket-description').fill('Preserve the submission');
+  await page.getByLabel('File Attachments').setInputFiles({ name: 'retry.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 retry') });
+  await page.route('**/api/tickets/*/attachments', route => route.abort(), { times: 1 });
+  await page.getByRole('button', { name: 'Create Ticket', exact: true }).last().click();
+  await expect(page.getByText('Ticket created; some files were not uploaded.')).toBeVisible();
+  await page.getByRole('button', { name: 'Retry Failed Uploads' }).click();
+  await expect(page.getByText('Ticket Created Successfully!')).toBeVisible();
+  const list = await (await page.request.get(apiURL + '/api/tickets')).json();
+  expect(list.data).toHaveLength(1); expect(list.data[0].attachmentCount).toBe(1);
+});

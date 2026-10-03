@@ -17,4 +17,6 @@ uploads/
 server/uploads/
 # vite temporary files
 *.timestamp-*.mjs
+e2e/test-results/
+e2e/playwright-report/
 

@@ -153,9 +153,9 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
           expect(prev.id < curr.id).toBe(true);
         }
       }
-      // Requesters & Admins denied
+      // Requesters denied; Lab 4 permits Administrator operational reads.
       await request(app).get("/api/staff/assignees").set(requesterHeadersMap).expect(403);
-      await request(app).get("/api/staff/assignees").set(adminHeaders).expect(403);
+      await request(app).get("/api/staff/assignees").set(adminHeaders).expect(200);
     });
 
     it("returns staff ticket detail with safe references and attachment count", async () => {
@@ -171,9 +171,9 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       expect(res.body.owner).toBeNull();
       expect(res.body.attachmentCount).toBe(0);
 
-      // Requesters & Admins denied on staff detail alias
+      // Requesters denied; Lab 4 permits Administrator operational reads.
       await request(app).get(`/api/staff/tickets/${ticket.id}`).set(requesterHeadersMap).expect(403);
-      await request(app).get(`/api/staff/tickets/${ticket.id}`).set(adminHeaders).expect(403);
+      await request(app).get(`/api/staff/tickets/${ticket.id}`).set(adminHeaders).expect(200);
     });
 
     it("allows IT Staff to claim an unassigned ticket", async () => {

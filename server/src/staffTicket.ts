@@ -63,8 +63,8 @@ export async function formatTicketDetail(tx: Prisma.TransactionClient, ticket: a
 
 export async function getStaffAssignees(req: Request, res: Response) {
   const user = requireNormal(req);
-  if (user.role !== "IT_STAFF") {
-    throw new HttpError(403, "FORBIDDEN", "This operation requires IT Staff.");
+  if (user.role !== "IT_STAFF" && user.role !== "ADMINISTRATOR") {
+    throw new HttpError(403, "FORBIDDEN", "This read requires IT Staff or Administrator.");
   }
   const assignees = await getPrisma().user.findMany({
     where: {
@@ -79,8 +79,8 @@ export async function getStaffAssignees(req: Request, res: Response) {
 
 export async function getStaffTicketDetail(req: Request, res: Response) {
   const user = requireNormal(req);
-  if (user.role !== "IT_STAFF") {
-    throw new HttpError(403, "FORBIDDEN", "This operation requires IT Staff.");
+  if (user.role !== "IT_STAFF" && user.role !== "ADMINISTRATOR") {
+    throw new HttpError(403, "FORBIDDEN", "This read requires IT Staff or Administrator.");
   }
   const ticketId = positiveId(req.params.id, "ticket");
   res.status(200).json(await readTicketDetail(ticketId, user));

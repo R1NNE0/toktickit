@@ -39,7 +39,8 @@ const queueSelect = {
 } satisfies Prisma.TicketSelect;
 
 export async function staffQueue(req: Request, res: Response) {
-  if (requireNormal(req).role !== "IT_STAFF") reject(403, "FORBIDDEN", "Ticket Queue is available to IT Staff only.");
+  if (!["IT_STAFF", "ADMINISTRATOR"].includes(requireNormal(req).role))
+    reject(403, "FORBIDDEN", "Ticket Queue is available to IT Staff or Administrator.");
   const q = staffQuery(req.query), db = getPrisma(), filters: Prisma.Sql[] = [Prisma.sql`TRUE`];
   if (q.search) filters.push(Prisma.sql`(position(lower(${q.search}) in lower("ticketNumber")) > 0
     OR position(lower(${q.search}) in lower(summary)) > 0 OR position(lower(${q.search}) in lower(description)) > 0)`);

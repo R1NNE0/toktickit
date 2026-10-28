@@ -158,7 +158,7 @@ describe("API-26 Administrator capability view and authorization matrix", () => 
     const updated = await request(app)
       .patch(`/api/staff/tickets/${ticket.id}/priority`)
       .set(headers)
-      .send({ itPriority: targetItPriority })
+      .send({ itPriority: targetItPriority, expectedWorkflowVersion: ticket.workflowVersion })
       .expect(200);
 
     expect(updated.body.itPriority).toBe(targetItPriority);

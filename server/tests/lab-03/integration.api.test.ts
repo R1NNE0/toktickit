@@ -101,7 +101,7 @@ describe('Issue 35 integrated authorization and account lifecycle', () => {
     expect(hidden.body).toEqual(absent.body);
     await owner.agent.get(`/api/tickets/${id}/notes`).expect(403);
     expect((await admin.agent.get(`/api/tickets/${id}/notes`).expect(200)).body.data[0].body).toBe('PRIVATE-NOTE-SENTINEL');
-    await admin.agent.patch(`/api/staff/tickets/${id}/priority`).set('Origin', origin).set('X-CSRF-Token', admin.csrf).send({ itPriority: 'CRITICAL' }).expect(200);
+    await admin.agent.patch(`/api/staff/tickets/${id}/priority`).set('Origin', origin).set('X-CSRF-Token', admin.csrf).send({ itPriority: 'CRITICAL', expectedWorkflowVersion: 1 }).expect(200);
     await admin.agent.patch(`/api/admin/users/${users[2].id}`).set('Origin', origin).set('X-CSRF-Token', admin.csrf).send({ role: 'REQUESTER' }).expect(200);
     await staff.agent.get('/api/staff/tickets').expect(401);
     const fresh = await login(users[2].email);

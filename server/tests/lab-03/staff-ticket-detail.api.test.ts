@@ -181,7 +181,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res = await request(app)
         .post(`/api/staff/tickets/${ticket.id}/claim`)
         .set(staffHeaders)
-        .send({})
+        .send({ expectedWorkflowVersion: 1,})
         .expect(200);
 
       expect(res.body.ownerId).toBe(staffId);
@@ -194,7 +194,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res = await request(app)
         .post(`/api/staff/tickets/${ticket.id}/claim`)
         .set(staff2Headers)
-        .send({})
+        .send({ expectedWorkflowVersion: 1,})
         .expect(409);
 
       expect(res.body.code).toBe("ALREADY_ASSIGNED");
@@ -203,8 +203,8 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
     it("handles concurrent claims safely with exactly one winner", async () => {
       const ticket = await createTestTicket({ ownerId: null });
       const [res1, res2] = await Promise.all([
-        request(app).post(`/api/staff/tickets/${ticket.id}/claim`).set(staffHeaders).send({}),
-        request(app).post(`/api/staff/tickets/${ticket.id}/claim`).set(staff2Headers).send({}),
+        request(app).post(`/api/staff/tickets/${ticket.id}/claim`).set(staffHeaders).send({ expectedWorkflowVersion: 1,}),
+        request(app).post(`/api/staff/tickets/${ticket.id}/claim`).set(staff2Headers).send({ expectedWorkflowVersion: 1,}),
       ]);
 
       const statuses = [res1.status, res2.status].sort();
@@ -218,7 +218,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res1 = await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/owner`)
         .set(staffHeaders)
-        .send({ ownerId: staff2Id })
+        .send({ expectedWorkflowVersion: 1, ownerId: staff2Id })
         .expect(200);
       expect(res1.body.ownerId).toBe(staff2Id);
 
@@ -226,7 +226,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res2 = await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/owner`)
         .set(staffHeaders)
-        .send({ ownerId: adminId })
+        .send({ expectedWorkflowVersion: res1.body.workflowVersion, ownerId: adminId })
         .expect(200);
       expect(res2.body.ownerId).toBe(adminId);
 
@@ -234,7 +234,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res3 = await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/owner`)
         .set(staffHeaders)
-        .send({ ownerId: null })
+        .send({ expectedWorkflowVersion: res2.body.workflowVersion, ownerId: null })
         .expect(200);
       expect(res3.body.ownerId).toBeNull();
       expect(res3.body.owner).toBeNull();
@@ -247,28 +247,28 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/owner`)
         .set(staffHeaders)
-        .send({ ownerId: inactiveStaffId })
+        .send({ expectedWorkflowVersion: 1, ownerId: inactiveStaffId })
         .expect(400);
 
       // Requester
       await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/owner`)
         .set(staffHeaders)
-        .send({ ownerId: requesterId })
+        .send({ expectedWorkflowVersion: 1, ownerId: requesterId })
         .expect(400);
 
       // Non-existent ID
       await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/owner`)
         .set(staffHeaders)
-        .send({ ownerId: 2147483647 })
+        .send({ expectedWorkflowVersion: 1, ownerId: 2147483647 })
         .expect(400);
 
       // Invalid ID types
       await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/owner`)
         .set(staffHeaders)
-        .send({ ownerId: -5 })
+        .send({ expectedWorkflowVersion: 1, ownerId: -5 })
         .expect(400);
     });
   });
@@ -281,7 +281,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res1 = await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/priority`)
         .set(staffHeaders)
-        .send({ itPriority: "HIGH" })
+        .send({ expectedWorkflowVersion: 1, itPriority: "HIGH" })
         .expect(200);
       expect(res1.body.itPriority).toBe("HIGH");
       expect(res1.body.requestedPriority).toBe("LOW");
@@ -290,7 +290,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res2 = await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/priority`)
         .set(adminHeaders)
-        .send({ itPriority: "CRITICAL" })
+        .send({ expectedWorkflowVersion: res1.body.workflowVersion, itPriority: "CRITICAL" })
         .expect(200);
       expect(res2.body.itPriority).toBe("CRITICAL");
       expect(res2.body.requestedPriority).toBe("LOW");
@@ -303,14 +303,14 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/priority`)
         .set(staffHeaders)
-        .send({ itPriority: "SUPER_URGENT" })
+        .send({ expectedWorkflowVersion: 1, itPriority: "SUPER_URGENT" })
         .expect(400);
 
       // Requester denied
       await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/priority`)
         .set(requesterHeadersMap)
-        .send({ itPriority: "HIGH" })
+        .send({ expectedWorkflowVersion: 1, itPriority: "HIGH" })
         .expect(403);
     });
   });
@@ -322,16 +322,16 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const errRes = await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/status`)
         .set(staffHeaders)
-        .send({ currentStatus: "IN_PROGRESS" })
+        .send({ expectedWorkflowVersion: 1, currentStatus: "IN_PROGRESS" })
         .expect(409);
-      expect(errRes.body.code).toBe("CONFLICT");
+      expect(errRes.body.code).toBe("OWNER_REQUIRED");
 
       // Assign owner then transition to IN_PROGRESS
       await db.ticket.update({ where: { id: ticket.id }, data: { ownerId: staffId } });
       const okRes = await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/status`)
         .set(staffHeaders)
-        .send({ currentStatus: "IN_PROGRESS" })
+        .send({ expectedWorkflowVersion: 1, currentStatus: "IN_PROGRESS" })
         .expect(200);
       expect(okRes.body.currentStatus).toBe("IN_PROGRESS");
     });
@@ -343,14 +343,14 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/status`)
         .set(staffHeaders)
-        .send({ currentStatus: "CANCELLED", reason: "Duplicate ticket reported." })
+        .send({ expectedWorkflowVersion: 1, currentStatus: "CANCELLED", reason: "Duplicate ticket reported." })
         .expect(400);
 
       // Missing reason
       await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/status`)
         .set(staffHeaders)
-        .send({ currentStatus: "CANCELLED", confirmed: true, reason: "" })
+        .send({ expectedWorkflowVersion: 1, currentStatus: "CANCELLED", confirmed: true, reason: "" })
         .expect(400);
 
       // Valid cancellation
@@ -358,7 +358,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res = await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/status`)
         .set(staffHeaders)
-        .send({ currentStatus: "CANCELLED", confirmed: true, reason: cancelReason })
+        .send({ expectedWorkflowVersion: 1, currentStatus: "CANCELLED", confirmed: true, reason: cancelReason })
         .expect(200);
       expect(res.body.currentStatus).toBe("CANCELLED");
 
@@ -383,7 +383,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res = await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/status`)
         .set(staffHeaders)
-        .send({ currentStatus: "REOPENED", confirmed: true, reason: reopenReason })
+        .send({ expectedWorkflowVersion: 1, currentStatus: "REOPENED", confirmed: true, reason: reopenReason })
         .expect(200);
 
       expect(res.body.currentStatus).toBe("REOPENED");
@@ -411,14 +411,14 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/status`)
         .set(staffHeaders)
-        .send({ currentStatus: "NEW" })
+        .send({ expectedWorkflowVersion: 1, currentStatus: "NEW" })
         .expect(409);
 
       // Illegal transition (NEW -> CLOSED)
       await request(app)
         .patch(`/api/staff/tickets/${ticket.id}/status`)
         .set(staffHeaders)
-        .send({ currentStatus: "CLOSED" })
+        .send({ expectedWorkflowVersion: 1, currentStatus: "CLOSED" })
         .expect(409);
     });
   });
@@ -430,7 +430,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res = await request(app)
         .post(`/api/tickets/${ticket.id}/resolution-indication`)
         .set(requesterHeadersMap)
-        .send({})
+        .send({ expectedCycle: 1 })
         .expect(200);
 
       expect(res.body.ticketId).toBe(ticket.id);
@@ -445,7 +445,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res1 = await request(app)
         .post(`/api/tickets/${ticket.id}/resolution-indication`)
         .set(requesterHeadersMap)
-        .send({})
+        .send({ expectedCycle: 1 })
         .expect(200);
 
       const firstTimestamp = res1.body.resolutionSuggestedAt;
@@ -453,7 +453,7 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       const res2 = await request(app)
         .post(`/api/tickets/${ticket.id}/resolution-indication`)
         .set(requesterHeadersMap)
-        .send({})
+        .send({ expectedCycle: 1 })
         .expect(200);
 
       expect(res2.body.resolutionSuggestedAt).toBe(firstTimestamp);
@@ -465,9 +465,9 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
         const res = await request(app)
           .post(`/api/tickets/${ticket.id}/resolution-indication`)
           .set(requesterHeadersMap)
-          .send({})
+          .send({ expectedCycle: 1 })
           .expect(409);
-        expect(res.body.code).toBe("CONFLICT");
+        expect(res.body.code).toBe("TICKET_NOT_ACTIVE");
       }
     });
 
@@ -478,21 +478,21 @@ describe("API-14, API-15, API-16, API-19 Staff Ticket Detail, Workflow & Resolut
       await request(app)
         .post(`/api/tickets/${ticket.id}/resolution-indication`)
         .set(otherRequesterHeaders)
-        .send({})
+        .send({ expectedCycle: 1 })
         .expect(404);
 
       // Staff gets 403
       await request(app)
         .post(`/api/tickets/${ticket.id}/resolution-indication`)
         .set(staffHeaders)
-        .send({})
+        .send({ expectedCycle: 1 })
         .expect(403);
 
       // Admin gets 403
       await request(app)
         .post(`/api/tickets/${ticket.id}/resolution-indication`)
         .set(adminHeaders)
-        .send({})
+        .send({ expectedCycle: 1 })
         .expect(403);
     });
   });

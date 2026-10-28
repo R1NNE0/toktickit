@@ -42,7 +42,9 @@ describe("API-12/13 Staff Queue and API-05/07 role gate", () => {
     const adminOwned = data.find((row: Ticket) => row.ownerId === adminId);
     expect(Object.keys(adminOwned).sort()).toEqual(["id", "ticketNumber", "summary", "description", "requesterId", "categoryId",
       "relatedSystemId", "requestedPriority", "itPriority", "currentStatus", "ownerId", "owner", "category", "relatedSystem",
-      "createdAt", "updatedAt", "resolutionSuggestedAt", "resolutionSuggestedById", "attachmentCount", "requester"].sort());
+      "createdAt", "updatedAt", "resolutionSuggestedAt", "resolutionSuggestedById", "attachmentCount", "requester",
+      "workflowVersion", "workCycle", "resolvedAt"].sort());
+    expect(adminOwned).toMatchObject({ workflowVersion: 1, workCycle: 1, resolvedAt: null });
     expect(Object.keys(adminOwned.requester).sort()).toEqual(["email", "id", "name"]);
     expect(Object.keys(adminOwned.owner).sort()).toEqual(["id", "isActive", "name", "role"]);
     expect(adminOwned.owner.role).toBe("ADMINISTRATOR");

@@ -595,8 +595,13 @@ describe("API-20 through API-24: Administrator User Management", () => {
       ]);
 
       const statuses = [res1.status, res2.status].sort();
-      // Exactly one must succeed (200), and the other must be rejected (409)
-      expect(statuses).toEqual([200, 409]);
+      // Phase 3C rechecks the actor under the account lock. The first demotion
+      // revokes the other actor's session, so its waiting request is unauthenticated.
+      expect(statuses).toEqual([200, 401]);
+      expect([res1, res2].find(r => r.status === 401)!.body.code).toBe("UNAUTHENTICATED");
+      expect(await db.user.count({ where: {
+        id: { in: [adminId, admin2Id] }, role: "ADMINISTRATOR", isActive: true,
+      } })).toBe(1);
 
       // Confirm at least one active administrator remains in DB
       const activeAdminCount = await db.user.count({

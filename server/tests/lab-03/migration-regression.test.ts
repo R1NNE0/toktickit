@@ -23,8 +23,14 @@ async function legacy() {
     ('Inactive','inactive@example.com',false,'2026-03-01')`);
   await db.category.create({ data: { name: "Hardware" } });
   await db.relatedSystem.create({ data: { name: "Email" } });
-  const ticket = await db.ticket.create({ data: { ticketNumber: "LEGACY-1", summary: "Keep every field",
-    description: "Preserve history", requesterId: 2, categoryId: 1, relatedSystemId: 1, idempotencyKey: "legacy-key", currentStatus: "CLOSED" }, select: { id: true } });
+  // Use only historical columns: the current Prisma client supplies Lab 4
+  // defaults even when returning only id, but this fixture predates those columns.
+  const [ticket] = await db.$queryRaw<{ id: number }[]>`
+    INSERT INTO "Ticket" ("ticketNumber", summary, description, "requesterId", "categoryId",
+      "relatedSystemId", "idempotencyKey", "currentStatus", "updatedAt")
+    VALUES ('LEGACY-1', 'Keep every field', 'Preserve history', 2, 1, 1,
+      'legacy-key', 'CLOSED', CURRENT_TIMESTAMP)
+    RETURNING id`;
   const file = path.resolve(process.env.TEST_UPLOAD_ROOT!, randomUUID() + ".pdf");
   await mkdir(path.dirname(file), { recursive: true }); await writeFile(file, "%PDF-1.4 legacy bytes");
   await db.attachment.create({ data: { ticketId: ticket.id, fileName: "legacy.pdf", storedPath: file,

@@ -42,7 +42,9 @@ describe("API-12/13 Staff Queue and API-05/07 role gate", () => {
     const adminOwned = data.find((row: Ticket) => row.ownerId === adminId);
     expect(Object.keys(adminOwned).sort()).toEqual(["id", "ticketNumber", "summary", "description", "requesterId", "categoryId",
       "relatedSystemId", "requestedPriority", "itPriority", "currentStatus", "ownerId", "owner", "category", "relatedSystem",
-      "createdAt", "updatedAt", "resolutionSuggestedAt", "resolutionSuggestedById", "attachmentCount", "requester"].sort());
+      "createdAt", "updatedAt", "resolutionSuggestedAt", "resolutionSuggestedById", "attachmentCount", "requester",
+      "workflowVersion", "workCycle", "resolvedAt"].sort());
+    expect(adminOwned).toMatchObject({ workflowVersion: 1, workCycle: 1, resolvedAt: null });
     expect(Object.keys(adminOwned.requester).sort()).toEqual(["email", "id", "name"]);
     expect(Object.keys(adminOwned.owner).sort()).toEqual(["id", "isActive", "name", "role"]);
     expect(adminOwned.owner.role).toBe("ADMINISTRATOR");
@@ -121,12 +123,14 @@ describe("API-12/13 Staff Queue and API-05/07 role gate", () => {
     const response = await request(app).get("/api/staff/tickets?" + query).set(headers).expect(400);
     expect(response.body.code).toBe("INVALID_QUERY");
   });
-  it("rejects anonymous/forged identities and Requester/Administrator roles before querying", async () => {
+  it("rejects anonymous/forged identities and Requester roles before querying", async () => {
     await request(app).get("/api/staff/tickets").set("x-requester-id", String(staffId)).expect(401);
-    for (const id of [requesterId, adminId]) {
+    for (const id of [requesterId]) {
       const response = await request(app).get("/api/staff/tickets?ownerId=bad").set(await requesterHeaders(id)).expect(403);
       expect(response.body.code).toBe("FORBIDDEN");
     }
+    const admin = await request(app).get("/api/staff/tickets?ownerId=bad").set(await requesterHeaders(adminId)).expect(400);
+    expect(admin.body.code).toBe("INVALID_QUERY");
     const spoofed = await get().set("x-requester-id", String(requesterId)).expect(200);
     expect(spoofed.body.pagination.total).toBe(24);
   });

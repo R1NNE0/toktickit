@@ -31,6 +31,7 @@ function rank(column: Prisma.Sql, values: readonly string[]) {
 const queueSelect = {
   id: true, ticketNumber: true, summary: true, description: true, requesterId: true, categoryId: true, relatedSystemId: true,
   requestedPriority: true, itPriority: true, currentStatus: true, ownerId: true, createdAt: true, updatedAt: true,
+  workflowVersion: true, workCycle: true, resolvedAt: true, resolutionSuggestedAt: true, resolutionSuggestedById: true,
   requester: { select: { id: true, name: true, email: true } },
   owner: { select: { id: true, name: true, role: true, isActive: true } },
   category: { select: { id: true, name: true } }, relatedSystem: { select: { id: true, name: true } },
@@ -38,7 +39,8 @@ const queueSelect = {
 } satisfies Prisma.TicketSelect;
 
 export async function staffQueue(req: Request, res: Response) {
-  if (requireNormal(req).role !== "IT_STAFF") reject(403, "FORBIDDEN", "Ticket Queue is available to IT Staff only.");
+  if (!["IT_STAFF", "ADMINISTRATOR"].includes(requireNormal(req).role))
+    reject(403, "FORBIDDEN", "Ticket Queue is available to IT Staff or Administrator.");
   const q = staffQuery(req.query), db = getPrisma(), filters: Prisma.Sql[] = [Prisma.sql`TRUE`];
   if (q.search) filters.push(Prisma.sql`(position(lower(${q.search}) in lower("ticketNumber")) > 0
     OR position(lower(${q.search}) in lower(summary)) > 0 OR position(lower(${q.search}) in lower(description)) > 0)`);
@@ -63,8 +65,7 @@ export async function staffQueue(req: Request, res: Response) {
     const row = byId.get(id);
     if (!row) return []; // A concurrent deletion can be reconciled by the next refresh.
     const { _count, ...ticket } = row;
-    // No resolution indication can be written until the Issue 5 workflow exists.
-    return [{ ...ticket, attachmentCount: _count.attachments, resolutionSuggestedAt: null, resolutionSuggestedById: null }];
+    return [{ ...ticket, attachmentCount: _count.attachments }];
   });
   const total = Number(counts[0].total);
   res.setHeader("Cache-Control", "no-store");

@@ -12,6 +12,7 @@ import { requireRequester } from "./middleware/requesterAuth.js";
 import { createAuth, authErrorHandler, requireNormal } from "./auth/http.js";
 import { generateTicketNumber } from "./utils/ticketNumber.js";
 import { staffQueue } from "./staffQueue.js";
+import { actionsRouter } from "./actionsTaken.js";
 import {
   getStaffAssignees,
   getStaffTicketDetail,
@@ -19,7 +20,7 @@ import {
   updateTicketOwner,
   updateTicketPriority,
   updateTicketStatus,
-  formatTicketDetail,
+  readTicketDetail,
 } from "./staffTicket.js";
 import {
   getPublicComments,
@@ -41,6 +42,10 @@ export const app = express();
 
 const auth = createAuth();
 app.use(cors({ origin: auth.config.origin, credentials: true }));
+// Set before JSON/auth middleware so private workflow/security errors are not cached.
+app.use(["/api/tickets", "/api/staff", "/api/admin"], (_req, res, next) => {
+  res.set("Cache-Control", "no-store"); next();
+});
 app.use(express.json({ limit: "128kb" }));
 app.use("/api", auth.load);
 app.use("/api/auth", auth.router);
@@ -57,6 +62,7 @@ app.use(["/api/tickets", "/api/attachments", "/api/staff", "/api/admin"], (req, 
 });
 
 // Max 32-bit signed integer boundary (PostgreSQL serial/int)
+app.use(actionsRouter);
 const MAX_INT = 2147483647;
 
 function requireAttachmentActor(req: Request) {
@@ -253,6 +259,7 @@ app.get(
             requestedPriority: true,
             itPriority: true,
             currentStatus: true,
+            workflowVersion: true, workCycle: true, resolvedAt: true,
             createdAt: true,
             updatedAt: true,
             requesterId: true,
@@ -514,21 +521,7 @@ app.get(
       throw new HttpError(400, "INVALID_QUERY", "Requester identity comes from the authenticated session.");
     }
     const ticketId = positiveId(req.params.id, "ticket");
-    const prisma = getPrisma();
-    const ticket = await prisma.ticket.findUnique({
-      where: { id: ticketId },
-      include: ticketDetailInclude,
-    });
-
-    if (!ticket) {
-      throw new HttpError(404, "NOT_FOUND", "Ticket not found");
-    }
-
-    if (user.role === "REQUESTER" && ticket.requesterId !== user.id) {
-      throw new HttpError(404, "NOT_FOUND", "Ticket not found");
-    }
-
-    res.status(200).json(formatTicketDetail(ticket));
+    res.status(200).json(await readTicketDetail(ticketId, user));
   })
 );
 

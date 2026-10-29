@@ -7,13 +7,23 @@ import { LoginThrottle } from "./throttle.js";
 
 declare global { namespace Express { interface Request { auth?: { session: Session; user: User | null }; } } }
 export class HttpError extends Error {
-  constructor(public status: number, public code: string, message: string) { super(message); }
+  constructor(public status: number, public code: string, message: string,
+    public context?: { currentWorkflowVersion?: number; currentActionVersion?: number; currentCycle?: number;
+      details?: { fields?: Record<string, string>; eligibleOwner?: boolean; completedActions?: number;
+        incompleteActions?: number; outstandingFollowUps?: number } }) { super(message); }
 }
 export const reject = (status: number, code: string, message: string): never => { throw new HttpError(status, code, message); };
 export const asyncRoute = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => { Promise.resolve(fn(req, res, next)).catch(next); };
 export const authErrorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
-  if (error instanceof HttpError) { res.status(error.status).json({ error: error.message, code: error.code }); return; }
+  if (error instanceof HttpError) {
+    res.status(error.status).json({ error: error.message, code: error.code,
+      ...(error.context?.currentWorkflowVersion !== undefined ? { currentWorkflowVersion: error.context.currentWorkflowVersion } : {}),
+      ...(error.context?.currentActionVersion !== undefined ? { currentActionVersion: error.context.currentActionVersion } : {}),
+      ...(error.context?.currentCycle !== undefined ? { currentCycle: error.context.currentCycle } : {}),
+      ...(error.context?.details ? { details: error.context.details } : {}),
+    }); return;
+  }
   const status = error?.type === "entity.too.large" ? 413 : error instanceof SyntaxError ? 400 : 500;
   res.status(status).json({ error: status === 500 ? "Unable to complete the request." : "Invalid request.",
     code: status === 500 ? "INTERNAL_ERROR" : status === 413 ? "PAYLOAD_TOO_LARGE" : "VALIDATION_ERROR" });

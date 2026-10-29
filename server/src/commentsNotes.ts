@@ -1,7 +1,9 @@
+import { ticketMutationBody } from "./workflow.js";
 import type { Request, Response } from "express";
 import { getPrisma } from "./prisma.js";
 import { HttpError, requireNormal } from "./auth/http.js";
 import { positiveId } from "./middleware/requesterInput.js";
+import { ticketWrite, assertCanAdvance } from "./ticketConcurrency.js";
 import {
   validateTextBody,
   TERMINAL_RESOLUTION_STATUSES,
@@ -243,48 +245,42 @@ export async function indicateResolution(req: Request, res: Response) {
   }
 
   const ticketId = positiveId(req.params.id, "ticket");
-  const prisma = getPrisma();
+  const expectedCycle = ticketMutationBody(req.body, [], "expectedCycle");
+  const updated = await ticketWrite(req, ticketId, ["REQUESTER"], async (tx, ticket) => {
+    if (ticket.requesterId !== user.id) {
+      throw new HttpError(404, "NOT_FOUND", "Ticket not found");
+    }
 
-  const ticket = await prisma.ticket.findUnique({
-    where: { id: ticketId },
-  });
+    if (ticket.workCycle !== expectedCycle) throw new HttpError(409, "TICKET_CYCLE_CONFLICT", "Ticket cycle changed. Reload and review.", { currentCycle: ticket.workCycle });
 
-  if (!ticket || ticket.requesterId !== user.id) {
-    throw new HttpError(404, "NOT_FOUND", "Ticket not found");
-  }
+    if (TERMINAL_RESOLUTION_STATUSES.includes(ticket.currentStatus)) {
+      throw new HttpError(
+        409,
+        "TICKET_NOT_ACTIVE",
+        "Cannot indicate resolution on a ticket in a resolved, closed, or cancelled status."
+      );
+    }
 
-  if (TERMINAL_RESOLUTION_STATUSES.includes(ticket.currentStatus)) {
-    throw new HttpError(
-      409,
-      "CONFLICT",
-      "Cannot indicate resolution on a ticket in a resolved, closed, or cancelled status."
-    );
-  }
+    // Idempotent: retain the existing indication and metadata.
+    if (ticket.resolutionSuggestedAt) return ticket;
 
-  // Idempotent: return existing indication without updating updatedAt if already set in active cycle
-  if (ticket.resolutionSuggestedAt) {
-    res.status(200).json({
-      ticketId: ticket.id,
-      currentStatus: ticket.currentStatus,
-      resolutionSuggestedAt: ticket.resolutionSuggestedAt.toISOString(),
-      resolutionSuggestedById: ticket.resolutionSuggestedById,
+    assertCanAdvance(ticket);
+    return tx.ticket.update({
+      where: { id: ticketId },
+      data: {
+        resolutionSuggestedAt: new Date(),
+        resolutionSuggestedById: user.id,
+        workflowVersion: { increment: 1 },
+      },
     });
-    return;
-  }
-
-  const now = new Date();
-  const updated = await prisma.ticket.update({
-    where: { id: ticketId },
-    data: {
-      resolutionSuggestedAt: now,
-      resolutionSuggestedById: user.id,
-    },
   });
 
   res.status(200).json({
+    workflowVersion: updated.workflowVersion,
+    workCycle: updated.workCycle,
     ticketId: updated.id,
     currentStatus: updated.currentStatus,
-    resolutionSuggestedAt: now.toISOString(),
+    resolutionSuggestedAt: updated.resolutionSuggestedAt!.toISOString(),
     resolutionSuggestedById: user.id,
   });
 }

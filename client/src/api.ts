@@ -51,6 +51,9 @@ export interface Ticket {
   relatedSystemId: number;
   createdAt: string;
   updatedAt: string;
+  workflowVersion?: number;
+  workCycle?: number;
+  resolvedAt?: string | null;
   category?: { id: number; name: string };
   relatedSystem?: { id: number; name: string };
   requester?: { id: number; name: string; email: string };
@@ -364,7 +367,9 @@ export async function checkSystem(): Promise<SystemStatus> {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) {
+  constructor(public status: number, public code: string, message: string,
+    public details?: { fields?: Record<string, string> },
+    public currentWorkflowVersion?: number, public currentActionVersion?: number, public currentCycle?: number) {
     super(message);
     this.name = "ApiError";
   }
@@ -374,7 +379,8 @@ async function handleApiResponse<T>(res: Response, defaultMessage: string): Prom
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     const message = errorData.error || (errorData.details && errorData.details[0]?.message) || `${defaultMessage} (status ${res.status})`;
-    throw new ApiError(res.status, errorData.code || "ERROR", message);
+    throw new ApiError(res.status, errorData.code || "ERROR", message, errorData.details,
+      errorData.currentWorkflowVersion, errorData.currentActionVersion, errorData.currentCycle);
   }
   return res.json();
 }

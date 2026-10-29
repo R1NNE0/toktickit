@@ -1,3 +1,5 @@
+import { ActionsTaken } from "./ActionsTaken.js";
+import { canLeaveActions } from "../action-ui.js";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDialogFocus } from "../useDialogFocus.js";
 import {
@@ -107,6 +109,7 @@ function formatStatus(val: string): string {
 
 export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, onBack }) => {
   const { user } = useAuth();
+  const guardedBack = () => { if (canLeaveActions()) onBack(); };
   const [ticket, setTicket] = useState<StaffTicketDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -471,7 +474,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
     return (
       <div className="zen-card py-4">
         <div className="alert alert-danger" role="alert">{error}</div>
-        <button type="button" className="btn btn-outline-secondary" onClick={onBack}>
+        <button type="button" className="btn btn-outline-secondary" onClick={guardedBack}>
           &larr; Back to Ticket Queue
         </button>
       </div>
@@ -491,7 +494,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
         <button
           type="button"
           className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
-          onClick={onBack}
+          onClick={guardedBack}
           aria-label="Back to Ticket Queue"
         >
           <span>&larr;</span>
@@ -804,6 +807,8 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
           </div>
         )}
       </div>
+
+      {user && <ActionsTaken ticket={ticket} user={user} onTicketChange={fresh => setTicket(old => old ? { ...old, ...fresh } : old)} />}
 
       {/* Discussion Threads: Public Comments & Internal Notes */}
       <div className="row g-4">

@@ -1,3 +1,4 @@
+import { canLeaveActions } from "./action-ui.js";
 import { useState, useEffect } from "react";
 import { Header } from "./components/Header.js";
 import { AuthProvider, useAuth } from "./context/AuthContext.js";
@@ -36,7 +37,13 @@ function MainContent() {
 
   // Hash deep link support (e.g. #/tickets/123)
   useEffect(() => {
+    let acceptedHash = window.location.hash;
     const handleHash = () => {
+      if (window.location.hash !== acceptedHash && !canLeaveActions()) {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search + acceptedHash);
+        return;
+      }
+      acceptedHash = window.location.hash;
       const match = window.location.hash.match(/^#\/tickets\/(\d+)$/);
       if (match) {
         setSelectedTicketId(Number(match[1]));
@@ -49,6 +56,7 @@ function MainContent() {
 
   // Safe navigation with unsaved changes guard
   const handleNavigate = (tab: string) => {
+    if (!canLeaveActions()) return;
     if (isFormDirty && activeTab === "create-ticket") {
       const confirmLeave = window.confirm(
         "You have unsaved changes in your ticket form. Are you sure you want to leave?"
@@ -87,7 +95,7 @@ function MainContent() {
 
   return (
     <div className="min-vh-100 d-flex flex-column" style={{ backgroundColor: "var(--page-bg)" }}>
-      <Header activeTab={activeTab} onNavigate={handleNavigate} onChangePassword={() => setChangingPassword(true)} />
+      <Header activeTab={activeTab} onNavigate={handleNavigate} onChangePassword={() => { if (canLeaveActions()) setChangingPassword(true); }} />
 
       <main className="container py-4 flex-grow-1" style={{ maxWidth: 1100 }}>
         {/* Session gate and existing Requester screens */}
@@ -105,6 +113,7 @@ function MainContent() {
               </div>
             {selectedTicketId && (
               <StaffTicketDetail
+                key={selectedTicketId}
                 ticketId={selectedTicketId}
                 onBack={() => {
                   setSelectedTicketId(null);
@@ -118,6 +127,7 @@ function MainContent() {
           : auth.user.role !== "REQUESTER" ? (
             selectedTicketId ? (
               <TicketDetail
+                key={selectedTicketId}
                 ticketId={selectedTicketId}
                 onBack={() => {
                   setSelectedTicketId(null);
@@ -159,6 +169,7 @@ function MainContent() {
               />
             ) : selectedTicketId ? (
               <TicketDetail
+                key={selectedTicketId}
                 ticketId={selectedTicketId}
                 onBack={() => {
                   setSelectedTicketId(null);

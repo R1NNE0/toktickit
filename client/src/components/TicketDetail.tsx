@@ -568,6 +568,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
                   className="form-select form-select-sm"
                   style={{ maxWidth: 160 }}
                   value={adminPriority}
+                  disabled={savingAdminPriority}
                   onChange={(e) => { setPriorityVersion(priorityVersion ?? ticket.workflowVersion); setAdminPriority(e.target.value as Priority); }}
                 >
                   {PRIORITIES.map((p) => (

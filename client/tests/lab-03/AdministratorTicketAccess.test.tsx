@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TicketDetail } from "../../src/components/TicketDetail.js";
 import * as api from "../../src/api.js";
@@ -135,6 +135,62 @@ describe("UI-12 Administrator Ticket Detail Capability View", () => {
 
     expect(updatePriority).toHaveBeenCalledWith(101, "CRITICAL", 7);
     expect(await screen.findByText(/IT Priority updated to CRITICAL/i)).toBeInTheDocument();
+  });
+
+  it.each(["success", "validation failure"])("locks the priority draft during a delayed save and unlocks after %s", async outcome => {
+    vi.mocked(api.getTicketDetail).mockResolvedValue({ ...ticket, itPriority: "HIGH" });
+    let resolve!: (value: api.Ticket) => void;
+    let reject!: (reason: Error) => void;
+    const updatePriority = vi.spyOn(api, "updateTicketPriority").mockReturnValue(new Promise((done, fail) => { resolve = done; reject = fail; }));
+    render(<TicketDetail ticketId={101} onBack={() => {}} />);
+    const select = await screen.findByLabelText("IT Priority");
+    await userEvent.selectOptions(select, "LOW");
+    await userEvent.click(screen.getByRole("button", { name: "Save Priority" }));
+    expect(select).toBeDisabled();
+    const saving = screen.getByRole("button", { name: "Saving..." });
+    expect(saving).toBeDisabled();
+    await userEvent.selectOptions(select, "CRITICAL");
+    await userEvent.click(saving);
+    expect(select).toHaveValue("LOW");
+    expect(updatePriority).toHaveBeenCalledTimes(1);
+    expect(updatePriority).toHaveBeenCalledWith(101, "LOW", 7);
+    await act(async () => {
+      if (outcome === "success") resolve({ ...ticket, itPriority: "LOW", workflowVersion: 8 });
+      else reject(new api.ApiError(400, "VALIDATION_ERROR", "Priority update rejected"));
+    });
+    expect(select).toBeEnabled();
+    expect(select).toHaveValue("LOW");
+    expect(screen.getByRole("button", { name: "Save Priority" })).toBeEnabled();
+    expect(await screen.findByText(outcome === "success" ? "IT Priority updated to LOW." : "Priority update rejected")).toBeInTheDocument();
+    await userEvent.selectOptions(select, "CRITICAL");
+    expect(select).toHaveValue("CRITICAL");
+    expect(updatePriority).toHaveBeenCalledTimes(1);
+  });
+
+  it("unlocks after a delayed conflict while retaining the draft and requiring explicit reload/review", async () => {
+    let reject!: (reason: Error) => void;
+    const updatePriority = vi.spyOn(api, "updateTicketPriority").mockReturnValueOnce(new Promise((_done, fail) => { reject = fail; }));
+    render(<TicketDetail ticketId={101} onBack={() => {}} />);
+    const select = await screen.findByLabelText("IT Priority");
+    await userEvent.selectOptions(select, "CRITICAL");
+    await userEvent.click(screen.getByRole("button", { name: "Save Priority" }));
+    expect(select).toBeDisabled();
+    await act(async () => reject(new api.ApiError(409, "TICKET_VERSION_CONFLICT", "Ticket changed")));
+    expect(select).toBeEnabled();
+    expect(select).toHaveValue("CRITICAL");
+    expect(screen.getByRole("button", { name: "Save Priority" })).toBeDisabled();
+    vi.mocked(api.getTicketDetail).mockResolvedValue({ ...ticket, workflowVersion: 10, itPriority: "MEDIUM" });
+    await userEvent.click(screen.getByRole("button", { name: "Reload latest workflow" }));
+    await screen.findByText(/Latest Ticket:.*IT Priority MEDIUM/);
+    expect(select).toHaveValue("CRITICAL");
+    expect(updatePriority).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole("button", { name: "Use latest workflow after review" }));
+    updatePriority.mockResolvedValueOnce({ ...ticket, workflowVersion: 11, itPriority: "CRITICAL" });
+    await userEvent.click(screen.getByRole("button", { name: "Save Priority" }));
+    await screen.findByText("IT Priority updated to CRITICAL.");
+    expect(updatePriority).toHaveBeenLastCalledWith(101, "CRITICAL", 10);
+    expect(select).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save Priority" })).toBeEnabled();
   });
 
   it("renders safe error feedback on ticket not found or failure", async () => {

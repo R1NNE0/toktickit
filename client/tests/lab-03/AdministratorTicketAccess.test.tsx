@@ -3,6 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TicketDetail } from "../../src/components/TicketDetail.js";
 import * as api from "../../src/api.js";
+// Actions behavior is covered by Lab 4 component and real-browser integration suites.
+vi.mock("../../src/components/ActionsTaken.js", () => ({ ActionsTaken: () => null }));
 
 const adminUser = {
   id: 5,
@@ -18,6 +20,7 @@ vi.mock("../../src/context/AuthContext.js", () => ({
 }));
 
 const ticket: api.Ticket = {
+  workflowVersion: 7, workCycle: 1, permittedTransitions: [],
   id: 101,
   ticketNumber: "TKT-2026-000101",
   summary: "Known Ticket for Admin Inspection",
@@ -130,7 +133,7 @@ describe("UI-12 Administrator Ticket Detail Capability View", () => {
     await userEvent.selectOptions(select, "CRITICAL");
     await userEvent.click(screen.getByRole("button", { name: "Save Priority" }));
 
-    expect(updatePriority).toHaveBeenCalledWith(101, "CRITICAL");
+    expect(updatePriority).toHaveBeenCalledWith(101, "CRITICAL", 7);
     expect(await screen.findByText(/IT Priority updated to CRITICAL/i)).toBeInTheDocument();
   });
 

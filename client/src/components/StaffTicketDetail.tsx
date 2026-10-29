@@ -1,3 +1,4 @@
+import { WorkflowFeedback, ResolutionSummary, useWorkflowRecovery, validWorkflowNumber, workflowLabel } from "./WorkflowFeedback.js";
 import { ActionsTaken } from "./ActionsTaken.js";
 import { canLeaveActions } from "../action-ui.js";
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -10,6 +11,7 @@ import {
   Attachment,
   Priority,
   TicketStatus,
+  TicketTransition,
   getStaffTicketDetail,
   getStaffAssignees,
   claimTicket,
@@ -32,46 +34,7 @@ interface StaffTicketDetailProps {
   onBack: () => void;
 }
 
-interface TransitionOption {
-  to: TicketStatus;
-  label: string;
-  requiresConfirmation: boolean;
-  requiresReason: boolean;
-  requiresOwner: boolean;
-}
-
-const TRANSITIONS_FROM: Record<string, TransitionOption[]> = {
-  NEW: [
-    { to: "OPEN", label: "Open", requiresConfirmation: false, requiresReason: false, requiresOwner: false },
-    { to: "CANCELLED", label: "Cancel", requiresConfirmation: true, requiresReason: true, requiresOwner: false },
-  ],
-  OPEN: [
-    { to: "IN_PROGRESS", label: "In Progress", requiresConfirmation: false, requiresReason: false, requiresOwner: true },
-    { to: "CANCELLED", label: "Cancel", requiresConfirmation: true, requiresReason: true, requiresOwner: false },
-  ],
-  IN_PROGRESS: [
-    { to: "WAITING_FOR_REQUESTER", label: "Waiting for Requester", requiresConfirmation: false, requiresReason: false, requiresOwner: false },
-    { to: "RESOLVED", label: "Resolve", requiresConfirmation: true, requiresReason: false, requiresOwner: true },
-    { to: "CANCELLED", label: "Cancel", requiresConfirmation: true, requiresReason: true, requiresOwner: false },
-  ],
-  WAITING_FOR_REQUESTER: [
-    { to: "IN_PROGRESS", label: "In Progress", requiresConfirmation: false, requiresReason: false, requiresOwner: true },
-    { to: "RESOLVED", label: "Resolve", requiresConfirmation: true, requiresReason: false, requiresOwner: true },
-    { to: "CANCELLED", label: "Cancel", requiresConfirmation: true, requiresReason: true, requiresOwner: false },
-  ],
-  RESOLVED: [
-    { to: "CLOSED", label: "Close", requiresConfirmation: true, requiresReason: false, requiresOwner: false },
-    { to: "REOPENED", label: "Reopen", requiresConfirmation: true, requiresReason: true, requiresOwner: false },
-  ],
-  CLOSED: [
-    { to: "REOPENED", label: "Reopen", requiresConfirmation: true, requiresReason: true, requiresOwner: false },
-  ],
-  REOPENED: [
-    { to: "OPEN", label: "Open", requiresConfirmation: false, requiresReason: false, requiresOwner: false },
-    { to: "CANCELLED", label: "Cancel", requiresConfirmation: true, requiresReason: true, requiresOwner: false },
-  ],
-  CANCELLED: [],
-};
+type TransitionOption = TicketTransition & { label: string };
 
 const PRIORITIES: Priority[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
@@ -114,7 +77,16 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
-  const [conflictError, setConflictError] = useState<string | null>(null);
+  const recovery = useWorkflowRecovery(() => getStaffTicketDetail(ticketId), setTicket);
+  const [ownerVersion, setOwnerVersion] = useState<number>();
+  const [priorityVersion, setPriorityVersion] = useState<number>();
+  const [statusVersion, setStatusVersion] = useState<number>();
+  const isStaff = user?.role === "IT_STAFF" && user.isActive && !user.mustChangePassword;
+  const workflowDisabled = recovery.blocked || recovery.pending || !validWorkflowNumber(ticket?.workflowVersion);
+  const acceptWorkflow = () => {
+    const fresh = recovery.accept(); if (!fresh) return;
+    setOwnerVersion(v => v === undefined ? undefined : fresh.workflowVersion); setPriorityVersion(v => v === undefined ? undefined : fresh.workflowVersion); setStatusVersion(v => v === undefined ? undefined : fresh.workflowVersion);
+  };
 
   // Assignees state
   const [assignees, setAssignees] = useState<Assignee[]>([]);
@@ -124,6 +96,8 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
   // Priority state
   const [selectedPriority, setSelectedPriority] = useState<Priority>("MEDIUM");
   const [savingPriority, setSavingPriority] = useState(false);
+  useEffect(() => { if (ticket && ownerVersion === undefined) setSelectedOwnerId(String(ticket.ownerId ?? "")); }, [ticket?.ownerId, ownerVersion]);
+  useEffect(() => { if (ticket && priorityVersion === undefined) setSelectedPriority(ticket.itPriority); }, [ticket?.itPriority, priorityVersion]);
 
   // Status transition state
   const [targetStatus, setTargetStatus] = useState<TicketStatus | "">("");
@@ -167,7 +141,6 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
   const fetchTicketData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setConflictError(null);
     try {
       const data = await getStaffTicketDetail(ticketId);
       setTicket(data);
@@ -226,129 +199,64 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
     loadNotes(1);
   }, [fetchTicketData, loadAssignees, loadComments, loadNotes]);
 
-  // Claim handler
   const handleClaim = async () => {
-    setConflictError(null);
+    if (!isStaff || !validWorkflowNumber(ticket?.workflowVersion) || !recovery.begin()) return;
     try {
-      const updated = await claimTicket(ticketId);
-      setTicket(updated);
-      setSelectedOwnerId(updated.ownerId !== null ? String(updated.ownerId) : "");
+      const updated = await claimTicket(ticketId, ticket.workflowVersion);
+      setTicket(updated); setSelectedOwnerId(String(updated.ownerId ?? "")); setOwnerVersion(undefined);
       setActionNotice("You have successfully claimed this ticket.");
-    } catch (err: any) {
-      if (err.status === 409 || err.code === "ALREADY_ASSIGNED") {
-        setConflictError("This ticket has already been assigned or claimed. Please refresh to see the current owner.");
-      } else {
-        setError(err.message || "Failed to claim ticket.");
-      }
-    }
+    } catch (err) { recovery.fail(err); } finally { recovery.end(); }
   };
-
-  // Save Owner handler
   const handleSaveOwner = async () => {
-    setConflictError(null);
+    const version = ownerVersion ?? ticket?.workflowVersion;
+    if (!isStaff || !validWorkflowNumber(version) || !recovery.begin()) return;
     setSavingOwner(true);
     try {
-      const ownerIdParam = selectedOwnerId === "" ? null : Number(selectedOwnerId);
-      const updated = await updateTicketOwner(ticketId, ownerIdParam);
-      setTicket(updated);
-      setSelectedOwnerId(updated.ownerId !== null ? String(updated.ownerId) : "");
+      const updated = await updateTicketOwner(ticketId, selectedOwnerId === "" ? null : Number(selectedOwnerId), version);
+      setTicket(updated); setSelectedOwnerId(String(updated.ownerId ?? "")); setOwnerVersion(undefined);
       setActionNotice("Ticket owner updated successfully.");
-    } catch (err: any) {
-      if (err.status === 409) {
-        setConflictError("Owner conflict: Ticket state changed. Please refresh.");
-      } else {
-        setError(err.message || "Failed to update ticket owner.");
-      }
-    } finally {
-      setSavingOwner(false);
-    }
+    } catch (err) { recovery.fail(err); } finally { setSavingOwner(false); recovery.end(); }
   };
-
-  // Save Priority handler
   const handleSavePriority = async () => {
+    const version = priorityVersion ?? ticket?.workflowVersion;
+    if (!isStaff || !validWorkflowNumber(version) || !recovery.begin()) return;
     setSavingPriority(true);
     try {
-      const updated = await updateTicketPriority(ticketId, selectedPriority);
-      setTicket((prev) => prev ? { ...prev, itPriority: updated.itPriority, updatedAt: updated.updatedAt } : null);
-      setActionNotice(`IT Priority updated to ${selectedPriority}.`);
-    } catch (err: any) {
-      setError(err.message || "Failed to update IT Priority.");
-    } finally {
-      setSavingPriority(false);
-    }
+      const updated = await updateTicketPriority(ticketId, selectedPriority, version);
+      setTicket(prev => prev ? { ...prev, ...updated } : null); setPriorityVersion(undefined);
+      setActionNotice(`IT Priority updated to ${updated.itPriority}.`);
+    } catch (err) { recovery.fail(err); } finally { setSavingPriority(false); recovery.end(); }
   };
-
-  // Status transition start
   const handleInitiateStatusChange = () => {
     setStatusError(null);
-    if (!targetStatus || !ticket) return;
-
-    const available = TRANSITIONS_FROM[ticket.currentStatus] || [];
-    const rule = available.find((opt) => opt.to === targetStatus);
-    if (!rule) {
-      setStatusError(`Transition to ${targetStatus} is not permitted from ${ticket.currentStatus}.`);
-      return;
-    }
-
-    if (rule.requiresOwner && !ticket.ownerId) {
-      setStatusError("This status transition requires an active eligible assigned owner. Please assign or claim the ticket first.");
-      return;
-    }
-
+    if (!isStaff || workflowDisabled || !targetStatus || !ticket) return;
+    const rule = ticket.permittedTransitions?.find(opt => opt.to === targetStatus);
+    if (!rule?.enabled) { setStatusError("This transition is unavailable. Review the current owner and Actions Taken prerequisites."); return; }
     if (rule.requiresConfirmation) {
-      setTransitionModal(rule);
-      setTransitionReason("");
-      setTransitionReasonError(null);
-      return;
-    }
-
-    // Direct transition without confirmation modal
-    executeStatusChange(rule.to, false, undefined);
+      setStatusVersion(statusVersion ?? ticket.workflowVersion);
+      setTransitionModal({ ...rule, label: workflowLabel(rule.to) }); setTransitionReason(""); setTransitionReasonError(null);
+    } else { void executeStatusChange(rule.to, false); }
   };
-
   const executeStatusChange = async (newStatus: TicketStatus, confirmed: boolean, reasonText?: string) => {
+    const version = statusVersion ?? ticket?.workflowVersion;
+    if (!isStaff || !validWorkflowNumber(version) || !ticket?.permittedTransitions?.some(o => o.to === newStatus && o.enabled) || !recovery.begin()) return;
     setSavingStatus(true);
-    setConflictError(null);
     try {
-      const updated = await updateTicketStatus(ticketId, {
-        currentStatus: newStatus,
-        confirmed: confirmed ? true : undefined,
-        reason: reasonText,
-      });
-      setTicket(updated);
-      setTargetStatus("");
-      setTransitionModal(null);
-      setActionNotice(`Ticket status updated to ${formatStatus(newStatus)}.`);
-      if (reasonText) {
-        loadComments(1);
-      }
-    } catch (err: any) {
-      if (err.status === 409) {
-        setConflictError(err.message || "Status conflict: Ticket was updated by another action. Please refresh.");
-      } else {
-        setStatusError(err.message || "Failed to update ticket status.");
-      }
-    } finally {
-      setSavingStatus(false);
-    }
+      const updated = await updateTicketStatus(ticketId, { currentStatus: newStatus, expectedWorkflowVersion: version,
+        ...(confirmed ? { confirmed: true } : {}), ...(reasonText ? { reason: reasonText } : {}) });
+      setTicket(updated); setTargetStatus(""); setStatusVersion(undefined); setTransitionModal(null);
+      setActionNotice(newStatus === "REOPENED" ? `Ticket reopened in work cycle ${updated.workCycle}. Previous Actions remain historical; new work is required.` : `Ticket status updated to ${formatStatus(newStatus)}.`);
+      if (reasonText) void loadComments(1);
+    } catch (err) { recovery.fail(err); } finally { setSavingStatus(false); recovery.end(); }
   };
-
   const handleConfirmModalTransition = () => {
     if (!transitionModal) return;
-    if (transitionModal.requiresReason) {
-      const trimmed = transitionReason.trim();
-      if (!trimmed) {
-        setTransitionReasonError("A public reason is required for this transition.");
-        return;
-      }
-      if ([...trimmed].length > 4000) {
-        setTransitionReasonError("Reason must be 4000 characters or fewer.");
-        return;
-      }
-      executeStatusChange(transitionModal.to, true, trimmed);
-    } else {
-      executeStatusChange(transitionModal.to, true, undefined);
+    const reason = transitionReason.trim();
+    if (transitionModal.requiresReason && (!reason || [...reason].length > 4000)) {
+      setTransitionReasonError("Enter a public reason of 1–4000 characters.");
+      document.getElementById("transition-reason-input")?.focus(); return;
     }
+    void executeStatusChange(transitionModal.to, true, transitionModal.requiresReason ? reason : undefined);
   };
 
   // Public comment submit
@@ -483,7 +391,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
 
   if (!ticket) return null;
 
-  const currentAvailableTransitions = TRANSITIONS_FROM[ticket.currentStatus] || [];
+  const currentAvailableTransitions = isStaff ? (ticket.permittedTransitions ?? []).map(opt => ({ ...opt, label: workflowLabel(opt.to) })) : [];
   const activeAttachments = ticket.attachments?.filter((a) => !a.isRemoved) || [];
   const removedAttachments = ticket.attachments?.filter((a) => a.isRemoved) || [];
 
@@ -518,14 +426,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
         </div>
       )}
 
-      {conflictError && (
-        <div className="alert alert-warning d-flex justify-content-between align-items-center mb-3" role="alert">
-          <div><strong>Conflict:</strong> {conflictError}</div>
-          <button type="button" className="btn btn-sm btn-outline-dark" onClick={fetchTicketData}>
-            Refresh Ticket
-          </button>
-        </div>
-      )}
+      {!transitionModal && <WorkflowFeedback recovery={recovery} onReview={acceptWorkflow} />}
 
       {error && (
         <div className="alert alert-danger alert-dismissible fade show mb-3" role="alert">
@@ -618,6 +519,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                   className="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1"
                   onClick={handleClaim}
                   aria-label="Claim Ticket"
+                  disabled={workflowDisabled || !isStaff}
                 >
                   <span>🙋‍♂️</span>
                   <span>Claim Ticket (Assign to Me)</span>
@@ -630,8 +532,10 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                 className="form-select form-select-sm"
                 style={{ maxWidth: 260 }}
                 aria-label="Assign Owner"
+                id="ticket-owner"
+                disabled={workflowDisabled || !isStaff}
                 value={selectedOwnerId}
-                onChange={(e) => setSelectedOwnerId(e.target.value)}
+                onChange={(e) => { setOwnerVersion(ownerVersion ?? ticket.workflowVersion); setSelectedOwnerId(e.target.value); }}
               >
                 <option value="">Unassigned</option>
                 {assignees.map((a) => (
@@ -644,7 +548,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                 type="button"
                 className="btn btn-outline-secondary btn-sm"
                 onClick={handleSaveOwner}
-                disabled={savingOwner}
+                disabled={workflowDisabled || !isStaff}
               >
                 {savingOwner ? "Saving..." : "Save Owner"}
               </button>
@@ -662,8 +566,9 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                 className="form-select form-select-sm"
                 style={{ maxWidth: 200 }}
                 aria-label="IT Priority"
+                disabled={workflowDisabled || !isStaff}
                 value={selectedPriority}
-                onChange={(e) => setSelectedPriority(e.target.value as Priority)}
+                onChange={(e) => { setPriorityVersion(priorityVersion ?? ticket.workflowVersion); setSelectedPriority(e.target.value as Priority); }}
               >
                 {PRIORITIES.map((p) => (
                   <option key={p} value={p}>{p}</option>
@@ -673,7 +578,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                 type="button"
                 className="btn btn-outline-secondary btn-sm"
                 onClick={handleSavePriority}
-                disabled={savingPriority}
+                disabled={workflowDisabled || !isStaff}
               >
                 {savingPriority ? "Saving..." : "Save Priority"}
               </button>
@@ -683,6 +588,14 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
           {/* Status Workflow Transition */}
           <div className="col-12 border-top pt-3">
             <h3 className="h6 fw-bold mb-2">Status Workflow</h3>
+            <p>Work cycle {ticket.workCycle}. Actions from earlier cycles cannot satisfy resolution requirements.</p>
+            {!validWorkflowNumber(ticket.workflowVersion) && <p role="alert">Workflow metadata unavailable. Reload this Ticket before making changes.</p>}
+            <ResolutionSummary state={ticket.resolutionBlockers} />
+            {currentAvailableTransitions.filter(o => !o.enabled).map(o => <p key={o.to}>{o.label} unavailable: {o.blockers.map(b => ({ OWNER_REQUIRED: "requires an active eligible assigned owner", COMPLETED_ACTION_REQUIRED: "complete at least one current-cycle Action", ACTIONS_INCOMPLETE: "complete or cancel unfinished Actions", FOLLOW_UP_REQUIRED: "clear outstanding follow-ups with an explained correction" }[b])).join("; ")}.</p>)}
+            <div className="d-flex gap-2 flex-wrap mb-3">
+              <button type="button" className="btn btn-zen-outline" onClick={() => document.getElementById("ticket-owner")?.focus()}>Review primary owner</button>
+              <button type="button" className="btn btn-zen-outline" onClick={() => document.getElementById("actions-title")?.focus()}>Review Actions Taken</button>
+            </div>
             <div className="d-flex flex-wrap align-items-center gap-3 mb-2">
               <div>
                 <span className="text-muted small">Current Status: </span>
@@ -697,12 +610,13 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                     className="form-select form-select-sm"
                     style={{ minWidth: 180 }}
                     aria-label="Next Status"
+                    disabled={workflowDisabled}
                     value={targetStatus}
-                    onChange={(e) => setTargetStatus(e.target.value as TicketStatus)}
+                    onChange={(e) => { setStatusVersion(statusVersion ?? ticket.workflowVersion); setTargetStatus(e.target.value as TicketStatus); }}
                   >
                     <option value="">Select next status...</option>
                     {currentAvailableTransitions.map((opt) => (
-                      <option key={opt.to} value={opt.to}>
+                      <option key={opt.to} value={opt.to} disabled={!opt.enabled}>
                         {opt.label} ({opt.to})
                       </option>
                     ))}
@@ -711,7 +625,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                   <button
                     type="button"
                     className="btn btn-zen-primary btn-sm"
-                    disabled={!targetStatus || savingStatus}
+                    disabled={workflowDisabled || !currentAvailableTransitions.some(o => o.to === targetStatus && o.enabled)}
                     onClick={handleInitiateStatusChange}
                   >
                     {savingStatus ? "Updating..." : "Update Status"}
@@ -952,7 +866,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
 
       {/* Status Transition Confirmation Modal */}
       {transitionModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="status-dialog-title">
+        <div className="modal fade show d-block action-modal" style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="status-dialog-title">
           <div className="modal-dialog modal-dialog-centered" role="document">
             <div className="modal-content border-0 shadow">
               <div className="modal-header bg-success text-white" style={{ backgroundColor: "var(--primary-green)" }}>
@@ -972,6 +886,11 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                   Are you sure you want to transition this ticket to <strong>{transitionModal.to}</strong>?
                 </p>
 
+                <WorkflowFeedback recovery={recovery} onReview={acceptWorkflow} />
+                {transitionModal.to === "RESOLVED" && <ResolutionSummary state={ticket.resolutionBlockers} />}
+                {transitionModal.to === "CANCELLED" && <p>Complete or cancel all unfinished current-cycle Actions first. Completed follow-ups do not prevent Ticket cancellation.</p>}
+                {transitionModal.to === "REOPENED" && <p>Reopening starts a new work cycle and clears the previous resolution indication. Earlier Actions remain historical.</p>}
+                {!ticket.permittedTransitions?.some(o => o.to === transitionModal.to && o.enabled) && <p role="alert">This transition is no longer available. Review the latest Ticket before choosing another transition.</p>}
                 {transitionModal.requiresReason && (
                   <div className="mb-2">
                     <label htmlFor="transition-reason-input" className="form-label small fw-bold">
@@ -988,14 +907,16 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                       placeholder="Explain why this ticket is being cancelled or reopened..."
                       value={transitionReason}
                       onChange={(e) => setTransitionReason(e.target.value)}
-                      maxLength={4000}
+                      disabled={savingStatus}
+                      aria-invalid={!!transitionReasonError}
+                      aria-describedby={transitionReasonError ? "transition-reason-error" : undefined}
                       required
                     />
                     <div className="d-flex justify-content-between small text-muted mt-1">
-                      <span>{transitionReason.length} / 4000</span>
+                      <span>{[...transitionReason.trim()].length} / 4000</span>
                     </div>
                     {transitionReasonError && (
-                      <div className="text-danger small mt-1">{transitionReasonError}</div>
+                      <div id="transition-reason-error" role="alert" className="text-danger small mt-1">{transitionReasonError}</div>
                     )}
                   </div>
                 )}
@@ -1013,7 +934,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                   type="button"
                   className="btn btn-zen-primary"
                   onClick={handleConfirmModalTransition}
-                  disabled={savingStatus}
+                  disabled={workflowDisabled || !ticket.permittedTransitions?.some(o => o.to === transitionModal.to && o.enabled)}
                 >
                   {savingStatus ? "Updating..." : "Confirm Status Change"}
                 </button>

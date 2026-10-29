@@ -1,3 +1,4 @@
+import { WorkflowFeedback, useWorkflowRecovery, validWorkflowNumber } from "./WorkflowFeedback.js";
 import { ActionsTaken } from "./ActionsTaken.js";
 import { canLeaveActions } from "../action-ui.js";
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -64,6 +65,13 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
   }, [ticketId]);
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const recovery = useWorkflowRecovery(() => getTicketDetail(ticketId), setTicket);
+  const [priorityVersion, setPriorityVersion] = useState<number>();
+  const [resolutionCycle, setResolutionCycle] = useState<number>();
+  const acceptWorkflow = () => {
+    const fresh = recovery.accept(); if (!fresh) return;
+    setPriorityVersion(v => v === undefined ? undefined : fresh.workflowVersion); setResolutionCycle(fresh.workCycle);
+  };
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,6 +97,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
   // Administrator IT Priority state
   const [adminPriority, setAdminPriority] = useState<Priority>("MEDIUM");
   const [savingAdminPriority, setSavingAdminPriority] = useState(false);
+  useEffect(() => { if (ticket && priorityVersion === undefined) setAdminPriority(ticket.itPriority); }, [ticket?.itPriority, priorityVersion]);
 
   // Public Comments state
   const [comments, setComments] = useState<PublicComment[]>([]);
@@ -278,50 +287,28 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
     }
   };
 
-  // Handle Resolution Indication
+  // An advisory is bound to the cycle the Requester actually reviewed.
   const handleConfirmResolution = async () => {
-    setIndicatingResolution(true);
-    setResolutionError(null);
+    if (!user || user.role !== "REQUESTER" || ticket?.requesterId !== user.id || !validWorkflowNumber(resolutionCycle)
+      || !ACTIVE_RESOLUTION_STATUSES.includes(ticket.currentStatus) || !recovery.begin()) return;
+    setIndicatingResolution(true); setResolutionError(null);
     try {
-      const res = await indicateResolution(ticketId);
-      setTicket((prev) =>
-        prev
-          ? {
-              ...prev,
-              resolutionSuggestedAt: res.resolutionSuggestedAt,
-              resolutionSuggestedById: res.resolutionSuggestedById,
-            }
-          : null
-      );
+      const result = await indicateResolution(ticketId, resolutionCycle);
+      setTicket(prev => prev ? { ...prev, currentStatus: result.currentStatus, workflowVersion: result.workflowVersion, workCycle: result.workCycle,
+        resolutionSuggestedAt: result.resolutionSuggestedAt, resolutionSuggestedById: result.resolutionSuggestedById } : null);
       setShowResolutionModal(false);
-      setActionNotice("You have indicated that this problem appears resolved.");
-    } catch (err: any) {
-      setResolutionError(err.message || "Failed to indicate resolution.");
-    } finally {
-      setIndicatingResolution(false);
-    }
+      setActionNotice("You have indicated that this problem appears resolved. IT Staff must still formally resolve the Ticket.");
+    } catch (err) { recovery.fail(err); } finally { setIndicatingResolution(false); recovery.end(); }
   };
-
-  // Handle Save Priority (Administrator)
   const handleSaveAdminPriority = async () => {
+    const version = priorityVersion ?? ticket?.workflowVersion;
+    if (!isAdmin || !user?.isActive || user.mustChangePassword || !validWorkflowNumber(version) || !recovery.begin()) return;
     setSavingAdminPriority(true);
     try {
-      const updated = await updateTicketPriority(ticketId, adminPriority);
-      setTicket((prev) =>
-        prev
-          ? {
-              ...prev,
-              itPriority: updated.itPriority,
-              updatedAt: updated.updatedAt,
-            }
-          : null
-      );
-      setActionNotice(`IT Priority updated to ${adminPriority}.`);
-    } catch (err: any) {
-      setDownloadError(err.message || "Failed to update IT Priority.");
-    } finally {
-      setSavingAdminPriority(false);
-    }
+      const updated = await updateTicketPriority(ticketId, adminPriority, version);
+      setTicket(updated); setPriorityVersion(undefined);
+      setActionNotice(`IT Priority updated to ${updated.itPriority}.`);
+    } catch (err) { recovery.fail(err); } finally { setSavingAdminPriority(false); recovery.end(); }
   };
 
   // Handle Post Public Comment
@@ -477,9 +464,10 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
             <button
               type="button"
               className="btn btn-outline-success btn-sm"
-              disabled={Boolean((ticket as any).resolutionSuggestedAt) || indicatingResolution}
+              disabled={Boolean(ticket.resolutionSuggestedAt) || recovery.blocked || recovery.pending || !validWorkflowNumber(ticket.workCycle)}
               onClick={() => {
                 setResolutionError(null);
+                setResolutionCycle(ticket.workCycle);
                 setShowResolutionModal(true);
               }}
             >
@@ -528,6 +516,9 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
         </div>
       )}
 
+      {!showResolutionModal && <WorkflowFeedback recovery={recovery} onReview={acceptWorkflow} />}
+      <p className="small text-muted">Work cycle {ticket.workCycle ?? "unavailable"}. Requester resolution notices are advisory.</p>
+      {(isAdmin && !validWorkflowNumber(ticket.workflowVersion) || isOwnTicket && !validWorkflowNumber(ticket.workCycle)) && <p role="alert">Workflow metadata unavailable. Refresh Actions to reload the Ticket before making changes.</p>}
       {/* Requester Resolution Notice Banner */}
       {(ticket as any).resolutionSuggestedAt && (
         <div className="alert alert-info d-flex align-items-center gap-2 mb-4" role="status">
@@ -577,7 +568,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
                   className="form-select form-select-sm"
                   style={{ maxWidth: 160 }}
                   value={adminPriority}
-                  onChange={(e) => setAdminPriority(e.target.value as Priority)}
+                  onChange={(e) => { setPriorityVersion(priorityVersion ?? ticket.workflowVersion); setAdminPriority(e.target.value as Priority); }}
                 >
                   {PRIORITIES.map((p) => (
                     <option key={p} value={p}>
@@ -588,7 +579,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
                 <button
                   type="button"
                   className="btn btn-outline-secondary btn-sm"
-                  disabled={savingAdminPriority}
+                  disabled={recovery.pending || recovery.blocked || !validWorkflowNumber(ticket.workflowVersion)}
                   onClick={handleSaveAdminPriority}
                 >
                   {savingAdminPriority ? "Saving..." : "Save Priority"}
@@ -952,6 +943,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
                   type="button"
                   className="btn-close btn-close-white"
                   onClick={() => setShowResolutionModal(false)}
+                  disabled={indicatingResolution || recovery.loading}
                   aria-label="Close"
                 ></button>
               </div>
@@ -963,6 +955,8 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
                 <p className="small text-muted mb-0">
                   IT Staff will review your confirmation and formally resolve the ticket.
                 </p>
+                <WorkflowFeedback recovery={recovery} onReview={acceptWorkflow} />
+                {!ACTIVE_RESOLUTION_STATUSES.includes(ticket.currentStatus) && <p role="alert">This Ticket is terminal. No resolution indication can be submitted.</p>}
                 {resolutionError && (
                   <div className="alert alert-danger py-2 mt-2">{resolutionError}</div>
                 )}
@@ -981,7 +975,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
                   type="button"
                   className="btn btn-zen-primary"
                   onClick={handleConfirmResolution}
-                  disabled={indicatingResolution}
+                  disabled={recovery.pending || recovery.blocked || !validWorkflowNumber(resolutionCycle) || !ACTIVE_RESOLUTION_STATUSES.includes(ticket.currentStatus) || !!ticket.resolutionSuggestedAt}
                 >
                   {indicatingResolution ? "Submitting..." : "Confirm"}
                 </button>

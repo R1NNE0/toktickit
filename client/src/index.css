@@ -374,3 +374,27 @@ body {
   .requester-navigation.is-open { display: flex !important; flex-wrap: wrap; }
   .requester-navigation button { min-height: 44px; }
 }
+/* Lab 4: shared Actions cards and accessible, bounded dialogs. */
+.actions-taken, .action-card, .action-modal .modal-content { min-width: 0; overflow-wrap: anywhere; }
+.action-card { border: 1px solid var(--border-color, #dce5df); border-radius: 0.75rem; padding: 1rem; margin-block: 1rem; background: var(--surface-color, #fff); }
+.action-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.action-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1.5rem; }
+.action-facts dt { font-size: 0.85rem; color: var(--text-secondary, #4b6357); }
+.action-facts dd { margin-bottom: 0; overflow-wrap: anywhere; }
+.action-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; }
+.action-modal { background: rgba(0, 0, 0, 0.5); overflow-y: auto; }
+.action-modal .modal-content { max-height: 90dvh; }
+.action-modal .modal-body { overflow-y: auto; min-height: 0; }
+.action-modal textarea { min-height: 6rem; resize: vertical; }
+.actions-taken button, .action-modal button, .action-modal select, .actions-taken select { min-height: 44px; }
+.action-history summary { cursor: pointer; padding: 0.75rem; background: var(--pale-green); border-radius: 0.5rem; }
+.action-status-planned { background: #eaf6ef; color: #006b3c; }
+.action-status-in_progress { background: #e8f0fe; color: #204785; }
+.action-status-completed { background: #d4edda; color: #155724; }
+.action-status-cancelled { background: #ecefed; color: #35443c; }
+.actions-taken :focus-visible, .action-modal :focus-visible { outline: 3px solid var(--primary-green); outline-offset: 3px; }
+@media (max-width: 575px) {
+  .action-facts { grid-template-columns: minmax(0, 1fr); }
+  .action-modal .modal-dialog { margin: 0.5rem; }
+  .action-card { padding: 0.75rem; }
+}

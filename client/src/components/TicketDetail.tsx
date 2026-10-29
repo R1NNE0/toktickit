@@ -1,3 +1,5 @@
+import { ActionsTaken } from "./ActionsTaken.js";
+import { canLeaveActions } from "../action-ui.js";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDialogFocus } from "../useDialogFocus.js";
 import {
@@ -46,6 +48,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
   onBack,
 }) => {
   const { user } = useOptionalAuth();
+  const guardedBack = () => { if (canLeaveActions()) onBack(); };
   const isAdmin = user?.role === "ADMINISTRATOR";
   const isRequester = user?.role === "REQUESTER" || !user;
 
@@ -440,7 +443,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
         <button
           type="button"
           className="btn btn-zen-outline"
-          onClick={onBack}
+          onClick={guardedBack}
         >
           &larr; Back
         </button>
@@ -461,7 +464,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
         <button
           type="button"
           className="btn btn-zen-outline d-inline-flex align-items-center gap-2"
-          onClick={onBack}
+          onClick={guardedBack}
           aria-label={isAdmin ? "Back" : "Back to My Tickets"}
         >
           <span>&larr;</span>
@@ -809,6 +812,8 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
           </div>
         )}
       </div>
+
+      {user && <ActionsTaken ticket={ticket} user={user} onTicketChange={setTicket} />}
 
       {/* Public Comments Section */}
       <div className="zen-card mb-4">

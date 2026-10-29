@@ -3,11 +3,19 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { StaffTicketDetail } from "../../src/components/StaffTicketDetail.js";
 import * as api from "../../src/api.js";
+// Actions behavior is covered by Lab 4 component and real-browser integration suites.
+vi.mock("../../src/components/ActionsTaken.js", () => ({ ActionsTaken: () => null }));
 
 const authStaff = { id: 2, name: "Staff Member", email: "staff@example.com", role: "IT_STAFF", isActive: true, mustChangePassword: false };
 vi.mock("../../src/context/AuthContext.js", () => ({ useAuth: () => ({ user: authStaff }) }));
 
 const baseStaffTicket: api.StaffTicketDetail = {
+  workflowVersion: 7, workCycle: 1,
+  permittedTransitions: [
+    { to: "IN_PROGRESS", enabled: false, requiresConfirmation: false, requiresReason: false, blockers: ["OWNER_REQUIRED"] },
+    { to: "CANCELLED", enabled: true, requiresConfirmation: true, requiresReason: true, blockers: [] },
+  ],
+  resolutionBlockers: { eligibleOwner: false, completedActions: 0, incompleteActions: 0, outstandingFollowUps: 0 },
   id: 101,
   ticketNumber: "TKT-2026-000101",
   summary: "VPN Connection Failure",
@@ -89,7 +97,7 @@ describe("UI-08 Staff Ticket Detail: Read-Only Context, Claim, Assignment, Prior
     const claimBtn = await screen.findByRole("button", { name: "Claim Ticket" });
     await userEvent.click(claimBtn);
 
-    expect(claim).toHaveBeenCalledWith(101);
+    expect(claim).toHaveBeenCalledWith(101, 7);
     expect(await screen.findByText(/You have successfully claimed this ticket/i)).toBeInTheDocument();
 
     // Now test 409 conflict
@@ -100,8 +108,8 @@ describe("UI-08 Staff Ticket Detail: Read-Only Context, Claim, Assignment, Prior
     const claimBtn2 = await screen.findByRole("button", { name: "Claim Ticket" });
     await userEvent.click(claimBtn2);
 
-    expect(await screen.findByText(/This ticket has already been assigned or claimed/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Refresh Ticket" })).toBeInTheDocument();
+    expect(await screen.findByText(/Ticket is already assigned/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reload latest workflow" })).toBeInTheDocument();
   });
 
   it("allows Staff to reassign owner to another eligible staff or unassign", async () => {
@@ -118,7 +126,7 @@ describe("UI-08 Staff Ticket Detail: Read-Only Context, Claim, Assignment, Prior
     await userEvent.selectOptions(ownerSelect, "5");
     await userEvent.click(screen.getByRole("button", { name: "Save Owner" }));
 
-    expect(updateOwner).toHaveBeenCalledWith(101, 5);
+    expect(updateOwner).toHaveBeenCalledWith(101, 5, 7);
     expect(await screen.findByText(/Ticket owner updated successfully/i)).toBeInTheDocument();
 
     // Unassign
@@ -129,7 +137,7 @@ describe("UI-08 Staff Ticket Detail: Read-Only Context, Claim, Assignment, Prior
     });
     await userEvent.selectOptions(ownerSelect, "");
     await userEvent.click(screen.getByRole("button", { name: "Save Owner" }));
-    expect(updateOwner).toHaveBeenCalledWith(101, null);
+    expect(updateOwner).toHaveBeenCalledWith(101, null, 7);
   });
 
   it("allows Staff to update IT Priority without modifying requested priority", async () => {
@@ -145,7 +153,7 @@ describe("UI-08 Staff Ticket Detail: Read-Only Context, Claim, Assignment, Prior
     await userEvent.selectOptions(prioritySelect, "CRITICAL");
     await userEvent.click(screen.getByRole("button", { name: "Save Priority" }));
 
-    expect(updatePriority).toHaveBeenCalledWith(101, "CRITICAL");
+    expect(updatePriority).toHaveBeenCalledWith(101, "CRITICAL", 7);
     expect(await screen.findByText(/IT Priority updated to CRITICAL/i)).toBeInTheDocument();
   });
 
@@ -166,6 +174,7 @@ describe("UI-08 Staff Ticket Detail: Read-Only Context, Claim, Assignment, Prior
     const updateStatus = vi.spyOn(api, "updateTicketStatus").mockResolvedValue({
       ...baseStaffTicket,
       currentStatus: "CANCELLED",
+      permittedTransitions: [],
     });
 
     await userEvent.selectOptions(statusSelect, "CANCELLED");
@@ -181,6 +190,7 @@ describe("UI-08 Staff Ticket Detail: Read-Only Context, Claim, Assignment, Prior
     await userEvent.click(screen.getByRole("button", { name: "Confirm Status Change" }));
 
     expect(updateStatus).toHaveBeenCalledWith(101, {
+      expectedWorkflowVersion: 7,
       currentStatus: "CANCELLED",
       confirmed: true,
       reason: "Duplicate issue reported by requester.",
@@ -205,6 +215,7 @@ describe("UI-08 Staff Ticket Detail: Read-Only Context, Claim, Assignment, Prior
     vi.mocked(api.getStaffTicketDetail).mockResolvedValue({
       ...baseStaffTicket,
       currentStatus: "CANCELLED",
+      permittedTransitions: [],
     });
 
     render(<StaffTicketDetail ticketId={101} onBack={() => {}} />);

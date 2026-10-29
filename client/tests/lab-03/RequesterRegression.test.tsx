@@ -5,10 +5,12 @@ import { CreateTicket } from "../../src/components/CreateTicket.js";
 import { MyTickets } from "../../src/components/MyTickets.js";
 import { TicketDetail } from "../../src/components/TicketDetail.js";
 import * as api from "../../src/api.js";
+// Actions behavior is covered by Lab 4 component and real-browser integration suites.
+vi.mock("../../src/components/ActionsTaken.js", () => ({ ActionsTaken: () => null }));
 
 const user = { id: 1, name: "Session Requester", email: "requester@example.com", role: "REQUESTER", isActive: true, mustChangePassword: false };
 vi.mock("../../src/context/AuthContext.js", () => ({ useAuth: () => ({ user }) }));
-const ticket: api.Ticket = { id: 101, ticketNumber: "TKT-2026-000101", summary: "Owned ticket", description: "Details", requesterId: 1,
+const ticket: api.Ticket = { workflowVersion: 7, workCycle: 1, id: 101, ticketNumber: "TKT-2026-000101", summary: "Owned ticket", description: "Details", requesterId: 1,
   requestedPriority: "HIGH", itPriority: "HIGH", currentStatus: "NEW", categoryId: 1, relatedSystemId: 10,
   createdAt: "2026-09-16T00:00:00Z", updatedAt: "2026-09-16T00:00:00Z", attachments: [], attachmentCount: 0 };
 const file = new File(["%PDF-1.4 synthetic"], "report.pdf", { type: "application/pdf" });
@@ -98,7 +100,7 @@ describe("UI-04/05/06 Requester continuity (communication deferred to P5)", () =
 
   it("UI-06: handles Problem Appears Resolved indication and clears on reopening", async () => {
     const indicate = vi.spyOn(api, "indicateResolution").mockResolvedValue({
-      ticketId: 101,
+      ticketId: 101, workflowVersion: 8, workCycle: 1,
       currentStatus: "NEW",
       resolutionSuggestedAt: "2026-09-18T12:00:00.000Z",
       resolutionSuggestedById: 1,
@@ -115,7 +117,7 @@ describe("UI-04/05/06 Requester continuity (communication deferred to P5)", () =
     expect(screen.getByText(/This informs IT Staff; it does not close your ticket/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /^Confirm$/i }));
 
-    expect(indicate).toHaveBeenCalledWith(101);
+    expect(indicate).toHaveBeenCalledWith(101, 1);
     expect(await screen.findByText(/You indicated this problem appears resolved/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Resolution Indicated" })).toBeDisabled();
 

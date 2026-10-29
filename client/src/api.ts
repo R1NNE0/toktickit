@@ -25,6 +25,9 @@ export interface HealthResponse {
 
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type TicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "WAITING_FOR_REQUESTER" | "RESOLVED" | "CLOSED" | "REOPENED" | "CANCELLED";
+export type ResolutionBlockers = { eligibleOwner: boolean; completedActions: number; incompleteActions: number; outstandingFollowUps: number };
+export type TransitionBlocker = "OWNER_REQUIRED" | "COMPLETED_ACTION_REQUIRED" | "ACTIONS_INCOMPLETE" | "FOLLOW_UP_REQUIRED";
+export type TicketTransition = { to: TicketStatus; requiresConfirmation: boolean; requiresReason: boolean; enabled: boolean; blockers: TransitionBlocker[] };
 
 export interface Attachment {
   id: number;
@@ -54,6 +57,10 @@ export interface Ticket {
   workflowVersion?: number;
   workCycle?: number;
   resolvedAt?: string | null;
+  permittedTransitions?: TicketTransition[];
+  resolutionBlockers?: ResolutionBlockers;
+  resolutionSuggestedAt?: string | null;
+  resolutionSuggestedById?: number | null;
   category?: { id: number; name: string };
   relatedSystem?: { id: number; name: string };
   requester?: { id: number; name: string; email: string };
@@ -146,6 +153,8 @@ export interface PaginatedEntriesResponse<T> {
 }
 
 export interface ResolutionIndicationResponse {
+  workflowVersion: number;
+  workCycle: number;
   ticketId: number;
   currentStatus: TicketStatus;
   resolutionSuggestedAt: string;
@@ -302,13 +311,7 @@ export async function getTickets(
 
 export async function getTicketDetail(id: number): Promise<Ticket> {
   const res = await authFetch(`/api/tickets/${id}`);
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(
-      errorData.error || `Failed to fetch ticket details with status ${res.status}`
-    );
-  }
-  return res.json();
+  return handleApiResponse<Ticket>(res, "Failed to fetch ticket details");
 }
 
 export async function downloadAttachment(
@@ -368,7 +371,7 @@ export async function checkSystem(): Promise<SystemStatus> {
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string,
-    public details?: { fields?: Record<string, string> },
+    public details?: { fields?: Record<string, string> } & Partial<ResolutionBlockers>,
     public currentWorkflowVersion?: number, public currentActionVersion?: number, public currentCycle?: number) {
     super(message);
     this.name = "ApiError";
@@ -395,36 +398,36 @@ export async function getStaffTicketDetail(id: number, signal?: AbortSignal): Pr
   return handleApiResponse<StaffTicketDetail>(res, "Failed to fetch staff ticket detail");
 }
 
-export async function claimTicket(id: number): Promise<StaffTicketDetail> {
+export async function claimTicket(id: number, expectedWorkflowVersion: number): Promise<StaffTicketDetail> {
   const res = await authFetch(`/api/staff/tickets/${id}/claim`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ expectedWorkflowVersion }),
   });
   return handleApiResponse<StaffTicketDetail>(res, "Failed to claim ticket");
 }
 
-export async function updateTicketOwner(id: number, ownerId: number | null): Promise<StaffTicketDetail> {
+export async function updateTicketOwner(id: number, ownerId: number | null, expectedWorkflowVersion: number): Promise<StaffTicketDetail> {
   const res = await authFetch(`/api/staff/tickets/${id}/owner`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ownerId }),
+    body: JSON.stringify({ ownerId, expectedWorkflowVersion }),
   });
   return handleApiResponse<StaffTicketDetail>(res, "Failed to update ticket owner");
 }
 
-export async function updateTicketPriority(id: number, itPriority: Priority): Promise<Ticket> {
+export async function updateTicketPriority(id: number, itPriority: Priority, expectedWorkflowVersion: number): Promise<Ticket> {
   const res = await authFetch(`/api/staff/tickets/${id}/priority`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ itPriority }),
+    body: JSON.stringify({ itPriority, expectedWorkflowVersion }),
   });
   return handleApiResponse<Ticket>(res, "Failed to update ticket priority");
 }
 
 export async function updateTicketStatus(
   id: number,
-  payload: { currentStatus: TicketStatus; confirmed?: boolean; reason?: string }
+  payload: { currentStatus: TicketStatus; expectedWorkflowVersion: number; confirmed?: boolean; reason?: string }
 ): Promise<StaffTicketDetail> {
   const res = await authFetch(`/api/staff/tickets/${id}/status`, {
     method: "PATCH",
@@ -478,11 +481,11 @@ export async function createInternalNote(ticketId: number, body: string): Promis
   return handleApiResponse<InternalNote>(res, "Failed to create internal note");
 }
 
-export async function indicateResolution(ticketId: number): Promise<ResolutionIndicationResponse> {
+export async function indicateResolution(ticketId: number, expectedCycle: number): Promise<ResolutionIndicationResponse> {
   const res = await authFetch(`/api/tickets/${ticketId}/resolution-indication`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ expectedCycle }),
   });
   return handleApiResponse<ResolutionIndicationResponse>(res, "Failed to indicate resolution");
 }

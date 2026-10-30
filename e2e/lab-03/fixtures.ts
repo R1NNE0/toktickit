@@ -34,6 +34,9 @@ export const test = base.extend<{ actors: Actors }>({
         if (!file.startsWith(uploadRoot + path.sep)) throw new Error('Refusing cleanup outside the isolated upload root.');
         await unlink(file).catch(error => { if (error.code !== 'ENOENT') throw error; });
       }
+      const actionScope = { ticket: { requesterId: { in: ids } } };
+      await db.actionTakenRevision.deleteMany({ where: { action: actionScope } });
+      await db.actionTaken.deleteMany({ where: actionScope });
       await db.ticket.deleteMany({ where: { requesterId: { in: ids } } });
       await db.publicComment.deleteMany({ where: { authorId: { in: ids } } });
       await db.internalNote.deleteMany({ where: { authorId: { in: ids } } });
@@ -53,6 +56,26 @@ export async function csrf(request: APIRequestContext) {
 }
 export async function mutation(request: APIRequestContext, method: string, path: string, data: unknown = {}) {
   return request.fetch(apiURL + '/api' + path, { method, headers: { Origin: origin, 'X-CSRF-Token': await csrf(request) }, data });
+}
+// Retained resolution journeys must meet Lab 4 BR-19 through real, versioned work.
+export async function completeResolutionAction(request: APIRequestContext, ticketId: number) {
+  const detail = await request.get(apiURL + `/api/staff/tickets/${ticketId}`);
+  expect(detail.status()).toBe(200);
+  const ticket = await detail.json();
+  const path = `/tickets/${ticketId}/actions`;
+  const created = await mutation(request, 'POST', path, { clientRequestId: randomUUID(),
+    expectedWorkflowVersion: ticket.workflowVersion, description: 'Complete retained journey resolution work' });
+  expect(created.status(), await created.text()).toBe(201);
+  let current = await created.json();
+  for (const targetStatus of ['IN_PROGRESS', 'COMPLETED']) {
+    const response = await mutation(request, 'POST', `${path}/${current.action.id}/transitions`, {
+      expectedWorkflowVersion: current.ticket.workflowVersion, expectedVersion: current.action.version, targetStatus,
+      ...(targetStatus === 'COMPLETED' ? { result: 'Repair verified', followUpRequired: false } : {}),
+    });
+    expect(response.status(), await response.text()).toBe(200); current = await response.json();
+  }
+  expect(current.action).toMatchObject({ status: 'COMPLETED', cycle: ticket.workCycle, followUpRequired: false });
+  expect(current.action.performedBy.id).toBe(current.action.assignee.id);
 }
 export async function ticket(requester: Account, extra: Record<string, unknown> = {}) {
   const category = await db.category.findFirstOrThrow(), system = await db.relatedSystem.findFirstOrThrow();

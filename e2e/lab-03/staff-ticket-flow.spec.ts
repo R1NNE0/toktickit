@@ -1,8 +1,9 @@
-import { test, expect, login, ticket, apiURL, db } from './fixtures.js';
+import { test, expect, login, ticket, apiURL, db, navigate, completeResolutionAction } from './fixtures.js';
 test('E2E-02 Staff queue, ownership, discussion, resolution cycle and Requester visibility', async ({ page, browser, actors }) => {
   const work = await ticket(actors.requester);
   for (let i = 0; i < 11; i++) await ticket(actors.requester, { summary: 'Queue page fixture ' + i });
   await login(page, actors.staff);
+  await navigate(page, 'Ticket Queue');
   await page.getByLabel('Search tickets').fill('Queue page fixture');
   await expect(page.getByText('11 matching tickets')).toBeVisible();
   await page.getByRole('button', { name: 'Next Page' }).click(); await expect(page.getByText('Page 2 of 2')).toBeVisible();
@@ -59,6 +60,9 @@ test('E2E-02 Staff queue, ownership, discussion, resolution cycle and Requester 
     await requester.getByRole('button', { name: 'Confirm', exact: true }).click();
     await expect(requester.getByRole('button', { name: 'Resolution Indicated' })).toBeDisabled();
     expect((await db.ticket.findUniqueOrThrow({ where: { id: work.id } })).currentStatus).toBe('WAITING_FOR_REQUESTER');
+    await completeResolutionAction(page.request, work.id);
+    await page.getByRole('button', { name: 'Refresh Actions', exact: true }).click();
+    await expect(page.getByRole('option', { name: 'Resolve (RESOLVED)', exact: true })).toBeEnabled();
     await transition('RESOLVED'); await transition('CLOSED'); await transition('REOPENED', 'Problem returned after testing');
     await requester.reload(); await expect(requester.getByRole('button', { name: 'Problem Appears Resolved', exact: true })).toBeEnabled();
     expect((await db.ticket.findUniqueOrThrow({ where: { id: work.id } })).resolutionSuggestedAt).toBeNull();

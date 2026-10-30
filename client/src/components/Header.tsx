@@ -16,7 +16,7 @@ export function Header({ activeTab = "my-tickets", onNavigate, onChangePassword 
     <span className="h4 mb-0">TokTickIT</span>
     {user?.role === "REQUESTER" && !user.mustChangePassword && <><button className="btn btn-light requester-menu-toggle" aria-expanded={menuOpen} aria-controls="requester-navigation" onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
     <nav id="requester-navigation" className={"d-flex gap-2 requester-navigation " + (menuOpen ? "is-open" : "")} aria-label="Requester">
-      {[["my-tickets", "My Tickets"], ["create-ticket", "Create Ticket"]].map(([tab, label]) =>
+      {[["dashboard", "Dashboard"], ["my-tickets", "My Tickets"], ["create-ticket", "Create Ticket"]].map(([tab, label]) =>
         <button type="button" key={tab} className={"zen-nav-pill border-0 " + (activeTab === tab ? "active" : "bg-transparent")}
           aria-current={activeTab === tab ? "page" : undefined} onClick={() => { onNavigate?.(tab); setMenuOpen(false); }}>{label}</button>)}
     </nav></>}

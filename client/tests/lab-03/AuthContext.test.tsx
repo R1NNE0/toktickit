@@ -9,6 +9,7 @@ vi.mock("../../src/auth-client.js", async importOriginal => {
   return { ...actual, authRequest: vi.fn(), bootstrapCsrf: vi.fn().mockResolvedValue(undefined) };
 });
 vi.mock("../../src/staff-dashboard-api.js", () => ({ getStaffDashboard: vi.fn(() => new Promise(() => {})) }));
+vi.mock("../../src/requester-dashboard-api.js", () => ({ getRequesterDashboard: vi.fn(() => new Promise(() => {})) }));
 const user: auth.CurrentUser = { id: 71, name: "Session User", email: "session@example.com", role: "IT_STAFF", isActive: true, mustChangePassword: true };
 describe("UI-01/02 session screen integration (Issue 2 portion)", () => {
   beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });

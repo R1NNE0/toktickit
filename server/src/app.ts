@@ -1,3 +1,5 @@
+import { requesterDashboard } from "./requesterDashboard.js";
+import { dashboardFilters, activeStatuses } from "./dashboardQueries.js";
 import { staffDashboard } from "./staffDashboard.js";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
@@ -65,6 +67,7 @@ app.use(["/api/tickets", "/api/attachments", "/api/staff", "/api/admin"], (req, 
 // Max 32-bit signed integer boundary (PostgreSQL serial/int)
 app.use(actionsRouter);
 app.get("/api/dashboard/staff", asyncRoute(staffDashboard));
+app.get("/api/dashboard/requester", asyncRoute(requesterDashboard));
 const MAX_INT = 2147483647;
 
 function requireAttachmentActor(req: Request) {
@@ -210,7 +213,8 @@ app.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const requesterId = req.requesterId!;
-      const query = requesterQuery(req.query);
+      const extra = dashboardFilters(req.query);
+      const query = requesterQuery(extra.common);
       const { search, categoryId: filterCategoryId, status: filterStatus, priority: filterPriority,
         sortBy: sortField, sortOrder: sortDirection, page: parsedPage, pageSize: parsedLimit } = query;
 
@@ -218,6 +222,10 @@ app.get(
       const where: any = {
         requesterId,
       };
+
+      if (extra.statusGroup) where.currentStatus = { in: extra.statusGroup === "active" ? [...activeStatuses] : ["RESOLVED", "CLOSED"] };
+      if (extra.updated) where.updatedAt = { gte: extra.updated.from, lt: extra.updated.to };
+      if (extra.resolved) where.resolvedAt = { gte: extra.resolved.from, lt: extra.resolved.to };
 
       if (filterCategoryId) {
         where.categoryId = filterCategoryId;

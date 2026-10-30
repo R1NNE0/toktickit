@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { randomUUID, createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import path from "node:path";
 import { assertTestEnvironment, TEST_DATABASE_URL } from "../lab-03/safety.js";
@@ -75,6 +76,44 @@ async function fixture(db: PrismaClient) {
 }
 
 describe("L4-MIG-01/03/04 Actions foundation", () => {
+  it("restores an actual schema backup with its matching upload after simulated migration failure", async () => {
+    const { db, admin, schema, url, resource } = await isolated(true);
+    await legacyRows(db);
+    const dir = path.resolve(process.env.TEST_UPLOAD_ROOT!); await mkdir(dir, { recursive: true });
+    const file = path.join(dir, "lab4-recovery-" + randomUUID() + ".pdf"); resource.file = file;
+    const dumpFile = file + ".sql", uploadBackup = file + ".backup";
+    const bytes = Buffer.from("%PDF-1.4 matching isolated recovery fixture");
+    try {
+      await writeFile(file, bytes);
+      await db.attachment.create({ data: { ticketId: 1, fileName: "recovery.pdf", storedPath: file, fileSize: bytes.length, mimeType: "application/pdf" } });
+      const before = await snapshot(db);
+      // Both connections and all destructive statements are confined to the schema
+      // created by isolated(); never restore over public or a non-test database.
+      const dump = execFileSync("docker", ["exec", "toktickit-lab3-auth-test", "pg_dump", "-U", "lab3_test", "-d", "toktickit_lab3_test",
+        "--schema", schema, "--no-owner", "--no-privileges"], { maxBuffer: 8 * 1024 * 1024, windowsHide: true });
+      await writeFile(dumpFile, dump); await writeFile(uploadBackup, await readFile(file));
+      await expect(db.$transaction(async tx => {
+        await tx.$executeRawUnsafe('CREATE TABLE "InterruptedUpgrade" (id int)');
+        await tx.$executeRawUnsafe('SELECT 1/0');
+      })).rejects.toThrow();
+      await db.$disconnect();
+      if (!/^lab4_migration_[a-f0-9]{32}$/.test(schema)) throw new Error("Unsafe restore schema.");
+      await admin.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`);
+      await writeFile(file, "simulated lost/corrupt upload");
+      execFileSync("docker", ["exec", "-i", "toktickit-lab3-auth-test", "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "lab3_test", "-d", "toktickit_lab3_test"],
+        { input: await readFile(dumpFile), maxBuffer: 8 * 1024 * 1024, windowsHide: true });
+      await writeFile(file, await readFile(uploadBackup));
+      const restored = new PrismaClient({ datasources: { db: { url } } }); resource.db = restored;
+      expect(await snapshot(restored)).toEqual(before);
+      expect(createHash("sha256").update(await readFile(file)).digest("hex")).toBe(createHash("sha256").update(bytes).digest("hex"));
+      await deployThrough(url);
+      expect(await snapshot(restored)).toEqual(before);
+      expect(await restored.actionTaken.count()).toBe(0);
+      expect(await restored.ticket.count()).toBe(8);
+    } finally {
+      for (const backup of [dumpFile, uploadBackup]) await unlink(backup).catch(error => { if (error.code !== "ENOENT") throw error; });
+    }
+  });
   it("installs fresh models, indexes and paired relations with the documented defaults", async () => {
     const { db } = await isolated(); const { data, ticket, user } = await fixture(db);
     expect(ticket).toMatchObject({ workflowVersion: 1, workCycle: 1, resolvedAt: null });

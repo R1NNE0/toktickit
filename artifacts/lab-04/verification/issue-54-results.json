@@ -1,0 +1,173 @@
+{
+  "issue": 54,
+  "date": "2026-10-30",
+  "timezone": "Asia/Bangkok",
+  "revision": "Not inspected: Git commands prohibited. Branch supplied by student: feat/lab4-regression-hardening.",
+  "database": {
+    "container": "toktickit-lab3-auth-test",
+    "host": "127.0.0.1",
+    "port": 55433,
+    "database": "toktickit_lab3_test",
+    "user": "lab3_test",
+    "volume": "0552b05704bb127818ddc014fdc147a6fe5a43efcc7d08e119e36ab5346f93a9",
+    "developmentVolume": "toktickit_postgres_data",
+    "originalState": "exited"
+  },
+  "runs": [
+    {
+      "cwd": "client",
+      "command": "npm.cmd test -- --reporter=dot",
+      "files": 24,
+      "passed": 154,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "cwd": "server",
+      "command": "npm.cmd test -- --exclude tests/lab-04/dashboard-performance.test.ts --reporter=dot",
+      "files": 40,
+      "passed": 467,
+      "failed": 0,
+      "skipped": 0,
+      "note": "Before adding the focused recovery and startup tests. Performance deliberately measured separately."
+    },
+    {
+      "cwd": "server",
+      "command": "npx.cmd vitest run --config tests/lab-04/migration.config.ts -t 'restores an actual schema backup' --reporter=dot",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 6,
+      "note": "The six excluded cases passed in full backend regression. Added real pg_dump/psql restore plus matching upload and upgrade retry."
+    },
+    {
+      "cwd": "server",
+      "command": "npx.cmd vitest run tests/lab-04/dashboard-performance.test.ts --reporter=dot",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "runs": 2,
+      "note": "Both passed. Second run verifies final fixture revision snapshots exclude idempotency key/hash; not a retry for a failed latency target."
+    },
+    {
+      "cwd": "e2e",
+      "command": "npx.cmd playwright test --config playwright.config.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "cwd": "e2e",
+      "command": "npx.cmd playwright test --config playwright.actions-ui.config.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "cwd": "e2e",
+      "command": "npx.cmd playwright test --config playwright.actions-integration.config.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "note": "Before adding responsive.spec.ts; all pre-existing real-backend journeys executed."
+    },
+    {
+      "cwd": "e2e",
+      "command": "npx.cmd playwright test --config playwright.actions-integration.config.ts responsive.spec.ts",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "cwd": "server",
+      "command": "npx.cmd vitest run tests/lab-04/production-startup.test.ts --reporter=dot",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "runs": 2,
+      "note": "Final form compiles a fresh production build, spawns package entry on port 3103, asserts health and authenticated dashboard status 200, and stops its child."
+    },
+    {
+      "cwd": "client",
+      "command": "npm.cmd run build",
+      "result": "passed"
+    },
+    {
+      "cwd": "server",
+      "command": "npm.cmd run build",
+      "result": "passed; also compiled within final startup regression"
+    },
+    {
+      "cwd": "server",
+      "command": "npx.cmd vitest list --filesOnly",
+      "result": "42 configured backend files; no evidence files discovered"
+    }
+  ],
+  "defect": {
+    "rootCause": "npm start referenced dist/index.js while the configured build emits dist/src/index.js.",
+    "initialCommand": "server: npm.cmd start",
+    "initialResult": "failed: MODULE_NOT_FOUND",
+    "fix": "server/package.json start -> node dist/src/index.js",
+    "finalResult": "Actual npm start listened; health and authenticated dashboard read both returned HTTP 200; focused regression passed."
+  },
+  "performance": {
+    "dataset": {
+      "fixtureTickets": 300,
+      "fixtureActions": 900,
+      "totalTickets": 305,
+      "totalActions": 900,
+      "requesters": 7,
+      "owners": "unassigned, Staff A, Staff B, Admin",
+      "actionCounts": "0/1/8 repeated 100 times",
+      "clock": "2026-10-27T05:00:00.000Z",
+      "warmups": 5,
+      "measuredRequestsPerRole": 20,
+      "p95Definition": "19th sorted sample",
+      "payloadLimitBytes": 65536,
+      "queryLimit": 6,
+      "p95LimitMs": 1000
+    },
+    "environment": {
+      "node": "v24.14.0",
+      "postgres": "17.10 alpine x86_64",
+      "os": "Windows 10.0.26200",
+      "cpu": "Intel Core Ultra 9 275HX",
+      "memoryBytes": 16826642432
+    },
+    "firstRunP95Ms": {
+      "staff": 13.9156,
+      "admin": 13.0531,
+      "requester": 11.2584,
+      "zeroRequester": 9.1041
+    },
+    "finalRun": [
+      {
+        "role": "staff",
+        "p95Ms": 19.7899,
+        "dataSelects": 5,
+        "responseBytes": 5938
+      },
+      {
+        "role": "admin",
+        "p95Ms": 19.1605,
+        "dataSelects": 5,
+        "responseBytes": 5930
+      },
+      {
+        "role": "requester",
+        "p95Ms": 12.8708,
+        "dataSelects": 3,
+        "responseBytes": 2502
+      },
+      {
+        "role": "zero-requester",
+        "p95Ms": 18.1894,
+        "dataSelects": 3,
+        "responseBytes": 936
+      }
+    ],
+    "limitations": "Local synthetic smoke, not a production SLA. Harness SQL returns a fixed UTC clock. Query counts exclude session/authentication and transaction setup; latency includes authentication. Git revision not inspected."
+  },
+  "recovery": "Actual pg_dump of a uniquely owned Lab 3 schema plus matching PDF backup, injected transactional DDL failure, scoped schema loss/corrupt-upload simulation, psql restore, byte hash/old-row equality, and successful additive migration retry. No public/development schema or development volume was restored.",
+  "accessibility": "All three roles at 1280x800, 768x1024, 375x812: actual metric-card contrast >=4.5, touch dimensions >=44px, keyboard activation and return navigation, no page overflow. Existing browser suites cover dialogs, focus traps/return, long text and busy guards. Representative checks are not a full WCAG certification.",
+  "scope": "No Git operations, application feature changes, approved contract edits, student-managed document changes or Lab 3 evidence changes."
+}

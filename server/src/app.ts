@@ -1,3 +1,4 @@
+import { staffDashboard } from "./staffDashboard.js";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import path from "path";
@@ -43,7 +44,7 @@ export const app = express();
 const auth = createAuth();
 app.use(cors({ origin: auth.config.origin, credentials: true }));
 // Set before JSON/auth middleware so private workflow/security errors are not cached.
-app.use(["/api/tickets", "/api/staff", "/api/admin"], (_req, res, next) => {
+app.use(["/api/tickets", "/api/staff", "/api/admin", "/api/dashboard"], (_req, res, next) => {
   res.set("Cache-Control", "no-store"); next();
 });
 app.use(express.json({ limit: "128kb" }));
@@ -63,6 +64,7 @@ app.use(["/api/tickets", "/api/attachments", "/api/staff", "/api/admin"], (req, 
 
 // Max 32-bit signed integer boundary (PostgreSQL serial/int)
 app.use(actionsRouter);
+app.get("/api/dashboard/staff", asyncRoute(staffDashboard));
 const MAX_INT = 2147483647;
 
 function requireAttachmentActor(req: Request) {

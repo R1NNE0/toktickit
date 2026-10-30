@@ -8,6 +8,7 @@ vi.mock("../../src/auth-client.js", async importOriginal => {
   const actual = await importOriginal<typeof import("../../src/auth-client.js")>();
   return { ...actual, authRequest: vi.fn(), bootstrapCsrf: vi.fn().mockResolvedValue(undefined) };
 });
+vi.mock("../../src/staff-dashboard-api.js", () => ({ getStaffDashboard: vi.fn(() => new Promise(() => {})) }));
 const user: auth.CurrentUser = { id: 71, name: "Session User", email: "session@example.com", role: "IT_STAFF", isActive: true, mustChangePassword: true };
 describe("UI-01/02 session screen integration (Issue 2 portion)", () => {
   beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
@@ -26,7 +27,7 @@ describe("UI-01/02 session screen integration (Issue 2 portion)", () => {
     await userEvent.type(screen.getByLabelText("New password"), "Changed password 456");
     await userEvent.type(screen.getByLabelText("Confirm new password"), "Changed password 456");
     await userEvent.click(screen.getByRole("button", { name: "Save password" }));
-    expect(await screen.findByText("Signed in as IT Staff.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "IT Staff Dashboard" })).toBeInTheDocument();
   });
   it("hides private content on unconfirmed logout and requires confirmation before returning to login", async () => {
     vi.mocked(auth.authRequest).mockImplementation(async path => {
@@ -34,15 +35,15 @@ describe("UI-01/02 session screen integration (Issue 2 portion)", () => {
       return { user: { ...user, mustChangePassword: false } };
     });
     render(<App />);
-    await screen.findByText("Signed in as IT Staff.");
+    await screen.findByRole("heading", { name: "IT Staff Dashboard" });
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Logout could not be confirmed");
-    expect(screen.queryByText("Signed in as IT Staff.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "IT Staff Dashboard" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Sign in" })).not.toBeInTheDocument();
     vi.mocked(auth.authRequest).mockResolvedValue({ user });
     await userEvent.click(screen.getByRole("button", { name: "Retry sign out" }));
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
-    expect(screen.queryByText("Signed in as IT Staff.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "IT Staff Dashboard" })).not.toBeInTheDocument();
   });
   it("supports a fresh login and clears a signed-in screen after server expiry", async () => {
     vi.mocked(auth.authRequest).mockImplementation(async path => {
@@ -54,10 +55,10 @@ describe("UI-01/02 session screen integration (Issue 2 portion)", () => {
     await userEvent.type(screen.getByLabelText("Email"), user.email);
     await userEvent.type(screen.getByLabelText("Password"), "Initial password 123");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    await screen.findByText("Signed in as IT Staff.");
+    await screen.findByRole("heading", { name: "IT Staff Dashboard" });
     act(() => window.dispatchEvent(new Event("toktickit:session-expired")));
     await screen.findByRole("heading", { name: "Sign in" });
-    expect(screen.queryByText("Signed in as IT Staff.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "IT Staff Dashboard" })).not.toBeInTheDocument();
   });
 });
 

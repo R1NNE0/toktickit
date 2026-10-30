@@ -30,6 +30,7 @@ import {
 import { useAuth } from "../context/AuthContext.js";
 
 interface StaffTicketDetailProps {
+  focusActionId?: number;
   ticketId: number;
   onBack: () => void;
 }
@@ -70,7 +71,7 @@ function formatStatus(val: string): string {
   return val.replace(/_/g, " ").toLowerCase().replace(/^./, (s) => s.toUpperCase());
 }
 
-export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, onBack }) => {
+export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, onBack, focusActionId }) => {
   const { user } = useAuth();
   const guardedBack = () => { if (canLeaveActions()) onBack(); };
   const [ticket, setTicket] = useState<StaffTicketDetailType | null>(null);
@@ -722,7 +723,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
         )}
       </div>
 
-      {user && <ActionsTaken ticket={ticket} user={user} onTicketChange={fresh => setTicket(old => old ? { ...old, ...fresh } : old)} />}
+      {user && <ActionsTaken focusActionId={focusActionId} ticket={ticket} user={user} onTicketChange={fresh => setTicket(old => old ? { ...old, ...fresh } : old)} />}
 
       {/* Discussion Threads: Public Comments & Internal Notes */}
       <div className="row g-4">

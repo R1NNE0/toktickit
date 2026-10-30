@@ -123,7 +123,7 @@ describe("UI-07 Staff Queue", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Categories could not be loaded");
     expect(screen.getByLabelText("Category").children).toHaveLength(1);
   });
-  it("provides Staff navigation, keeps Requester destinations, and denies Admin/restricted navigation", () => {
+  it("provides Staff navigation, keeps Requester destinations, allows Admin operational reads, and denies restricted navigation", () => {
     const navigate = vi.fn(), view = render(<Header onNavigate={navigate} />);
     fireEvent.click(screen.getByRole("button", { name: "Ticket Queue" })); expect(navigate).toHaveBeenCalledWith("staff-queue");
     expect(screen.getByRole("navigation", { name: "IT Staff" })).toBeInTheDocument();
@@ -131,9 +131,11 @@ describe("UI-07 Staff Queue", () => {
     expect(screen.getByRole("button", { name: "My Tickets" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create Ticket" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ticket Queue" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Dashboard" })).not.toBeInTheDocument();
     auth.user.role = "ADMINISTRATOR"; view.rerender(<Header />);
     expect(screen.queryByRole("navigation", { name: "IT Staff" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Ticket Queue" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ticket Queue" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dashboard" })).toBeInTheDocument();
     auth.user.role = "IT_STAFF"; auth.user.mustChangePassword = true; view.rerender(<Header />);
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });

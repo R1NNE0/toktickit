@@ -22,6 +22,7 @@ import {
 import { useAuth } from "../context/AuthContext.js";
 
 interface TicketDetailProps {
+  focusActionId?: number;
   ticketId: number;
   onBack: () => void;
 }
@@ -45,7 +46,7 @@ function useOptionalAuth() {
 }
 
 export const TicketDetail: React.FC<TicketDetailProps> = ({
-  ticketId,
+  ticketId, focusActionId,
   onBack,
 }) => {
   const { user } = useOptionalAuth();
@@ -805,7 +806,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({
         )}
       </div>
 
-      {user && <ActionsTaken ticket={ticket} user={user} onTicketChange={setTicket} />}
+      {user && <ActionsTaken focusActionId={focusActionId} ticket={ticket} user={user} onTicketChange={setTicket} />}
 
       {/* Public Comments Section */}
       <div className="zen-card mb-4">

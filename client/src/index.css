@@ -387,6 +387,8 @@ body {
 .action-modal .modal-body { overflow-y: auto; min-height: 0; }
 .action-modal textarea { min-height: 6rem; resize: vertical; }
 .actions-taken button, .action-modal button, .action-modal select, .actions-taken select { min-height: 44px; }
+.staff-dashboard button { min-height: 44px; overflow-wrap: anywhere; }
+.staff-dashboard .zen-card { min-width: 0; }
 .action-history summary { cursor: pointer; padding: 0.75rem; background: var(--pale-green); border-radius: 0.5rem; }
 .action-status-planned { background: #eaf6ef; color: #006b3c; }
 .action-status-in_progress { background: #e8f0fe; color: #204785; }

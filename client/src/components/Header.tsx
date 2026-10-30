@@ -20,15 +20,11 @@ export function Header({ activeTab = "my-tickets", onNavigate, onChangePassword 
         <button type="button" key={tab} className={"zen-nav-pill border-0 " + (activeTab === tab ? "active" : "bg-transparent")}
           aria-current={activeTab === tab ? "page" : undefined} onClick={() => { onNavigate?.(tab); setMenuOpen(false); }}>{label}</button>)}
     </nav></>}
-    {user?.role === "IT_STAFF" && !user.mustChangePassword && <><button className="btn btn-light requester-menu-toggle" aria-expanded={menuOpen} aria-controls="staff-navigation" onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
-      <nav id="staff-navigation" className={"d-flex gap-2 requester-navigation " + (menuOpen ? "is-open" : "")} aria-label="IT Staff">
-        <button type="button" className="zen-nav-pill border-0 active" aria-current="page"
-          onClick={() => { onNavigate?.("staff-queue"); setMenuOpen(false); }}>Ticket Queue</button>
-      </nav></>}
-    {user?.role === "ADMINISTRATOR" && !user.mustChangePassword && <><button className="btn btn-light requester-menu-toggle" aria-expanded={menuOpen} aria-controls="admin-navigation" onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
-      <nav id="admin-navigation" className={"d-flex gap-2 requester-navigation " + (menuOpen ? "is-open" : "")} aria-label="Administrator">
-        <button type="button" className="zen-nav-pill border-0 active" aria-current="page"
-          onClick={() => { onNavigate?.("user-management"); setMenuOpen(false); }}>User Management</button>
+    {user && user.role !== "REQUESTER" && !user.mustChangePassword && <><button className="btn btn-light requester-menu-toggle" aria-expanded={menuOpen} aria-controls="operational-navigation" onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
+      <nav id="operational-navigation" className={"d-flex gap-2 requester-navigation " + (menuOpen ? "is-open" : "")} aria-label={user.role === "IT_STAFF" ? "IT Staff" : "Administrator"}>
+        {[["dashboard", "Dashboard"], ["staff-queue", "Ticket Queue"], ...(user.role === "ADMINISTRATOR" ? [["user-management", "User Management"]] : [])].map(([tab, title]) =>
+          <button key={tab} type="button" className={"zen-nav-pill border-0 " + (activeTab === tab ? "active" : "bg-transparent")} aria-current={activeTab === tab ? "page" : undefined}
+            onClick={() => { onNavigate?.(tab); setMenuOpen(false); }}>{title}</button>)}
       </nav></>}
     {user && <div className="d-flex flex-wrap align-items-center gap-2">
       <span>{user.name} · {user.role === "IT_STAFF" ? "IT Staff" : user.role === "ADMINISTRATOR" ? "Administrator" : "Requester"}</span>

@@ -1,20 +1,21 @@
 # Lab 4 — AI Use and Reflection
 
-**LLM/agents used:** [To be completed]
+**LLM/agent used:** OpenAI Codex (VS Code) and Gemini (Antigravity Agent)
 
 ## Selected key prompts (6–10)
 
 | Number | Prompt (summarised) | What I did with the result |
 |:---:|---|---|
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
-| 5 | | |
-| 6 | | |
-| 7 | | |
-| 8 | | |
-| 9 | | |
-| 10 | | |
+| 1 | Review the Lab 4 engineering specification, API/UI contracts, and test plan to identify missing requirements, inconsistent business rules, and gaps in acceptance-criteria coverage before implementation. | Used the AI-assisted review to refine the engineering contract and improve traceability between Actions Taken, Ticket workflow rules, dashboard requirements, and planned verification. |
+| 2 | Review the Actions Taken backend implementation for authorization, revision-history integrity, concurrency conflicts, and retry/idempotency edge cases. | Evaluated the findings against the approved contract, strengthened relevant backend behavior and regression coverage, and verified that historical revisions and role restrictions were preserved. |
+| 3 | Review the Actions Taken frontend for potential UI state bugs, including stale asynchronous responses, repeated submissions, validation errors, and preservation of user input during failures. | Used focused tests and review feedback to verify the Actions Taken interface, correct affected interaction behavior, and preserve existing Ticket Detail functionality. |
+| 4 | Audit the Ticket workflow and resolution gates against the approved business rules, including valid status transitions, completed-Action prerequisites, reopened work cycles, and Administrator permissions. | Verified workflow enforcement across backend and frontend, added focused regression coverage, and corrected asynchronous UI behavior where pending responses could overwrite newer selections. |
+| 5 | Review Staff and Administrator dashboard metrics, UTC reporting boundaries, assignment/completion attribution, authorization, and Ticket Queue drill-down consistency. | Implemented and verified dashboard aggregation and navigation, checked role-specific access and filter restoration, and added component, API, and real-backend integration tests. |
+| 6 | Investigate retained Lab 3 E2E failures after introducing the new dashboard landing page and Lab 4 resolution requirements. Identify whether failures represent outdated tests or application defects. | Updated browser journeys to navigate explicitly after login, established completed-Action prerequisites before resolution, and aligned Administrator read assertions with the approved contract. The affected seven-test browser suite subsequently passed. |
+| 7 | Perform full regression and production hardening across Labs 1–4, covering migration recovery, authentication, Actions Taken, Ticket workflows, dashboards, responsive behavior, and production startup. | Used the verification results to identify and fix an incorrect production server entry point, add startup and recovery regression coverage, and confirm the completed system through backend, frontend, and browser tests. |
+| 8 | Review Lab 4 release documentation and generate a reproducible evidence checklist and browser screenshot capture workflow covering the acceptance criteria and submission requirements. | Prepared release documentation and an AC-01–24 evidence index, captured 46 actual application screenshots across desktop, tablet, and mobile viewports, and verified the screenshot inventory, hashes, documentation links, and capture workflow. |
 
-## My Reflection
+## Reflection
+Working on TokTickIT Lab 4 with AI coding agents helped me understand how to integrate features such as Actions Taken, Ticket workflows, and role-based dashboards while following the engineering specification. One challenge was that retained Lab 3 E2E tests failed after introducing the new Dashboard landing page and resolution rules. I used AI assistance to investigate the failures, update the affected test scenarios, and verify that the intended behavior remained correct.
+
+This lab also taught me that passing automated tests does not always guarantee correctness, as peer reviews helped identify issues missed during development. I learned to use more focused AI prompts, avoid unnecessary repeated testing, and evaluate AI-generated solutions carefully. Overall, Lab 4 strengthened my understanding of system integration, regression testing, and the importance of independent verification.

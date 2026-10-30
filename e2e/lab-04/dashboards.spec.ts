@@ -44,3 +44,38 @@ for (const role of ['staff', 'admin'] as const) test(`L4-E2E-03 ${role} dashboar
     await page.setViewportSize(viewport); await noOverflow(page);
   }
 });
+
+test('L4-E2E-03 Requester dashboard scopes metrics, preserves drill-down state and refreshes reopened work', async ({ page, actors }) => {
+  const own = await ticket(actors.requester, { currentStatus: 'WAITING_FOR_REQUESTER' });
+  const reopened = await ticket(actors.requester, { currentStatus: 'REOPENED', workCycle: 2 });
+  const legacy = await ticket(actors.requester, { currentStatus: 'CLOSED', resolvedAt: null });
+  await ticket(actors.requester, { currentStatus: 'RESOLVED', resolvedAt: new Date() });
+  const foreign = await ticket(actors.other, { summary: 'Foreign private summary' });
+  await login(page, actors.requester);
+  await expect(page.getByRole('heading', { name: 'Requester Dashboard', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Active tickets 2', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Waiting for you 1', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Resolved in last 7 days 1', exact: true })).toBeVisible();
+  await expect(page.getByText('Foreign private summary')).toHaveCount(0);
+  const denied = await page.request.get(apiURL + `/api/tickets/${foreign.id}`); expect(denied.status()).toBe(404);
+  await page.getByRole('button', { name: 'Active tickets 2', exact: true }).click();
+  await expect(page.getByLabel('Active Ticket filters')).toContainText('active');
+  await expect(page.getByText(own.ticketNumber, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(legacy.ticketNumber, { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'View', exact: true }).first().click();
+  await expect(page.getByRole('button', { name: 'Refresh Actions', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /Create Action|View history/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Back to My Tickets', exact: true }).click();
+  await expect(page.getByLabel('Active Ticket filters')).toContainText('active');
+  // Reopening must clear recent resolution attribution and count as active.
+  await db.ticket.update({ where: { id: legacy.id }, data: { currentStatus: 'REOPENED', workCycle: 2, resolvedAt: null } });
+  await navigate(page, 'Dashboard');
+  await expect(page.getByRole('button', { name: 'Active tickets 3', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: `Open Ticket ${reopened.ticketNumber}`, exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Refresh Actions', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Back to My Tickets', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Requester Dashboard', exact: true })).toBeVisible();
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 768, height: 1024 }, { width: 375, height: 812 }]) {
+    await page.setViewportSize(viewport); await noOverflow(page);
+  }
+});

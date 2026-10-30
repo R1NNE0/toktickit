@@ -78,6 +78,8 @@ export interface CreateTicketPayload {
 }
 
 export interface GetTicketsParams {
+  statusGroup?: "active" | "resolved";
+  updatedFrom?: string; updatedTo?: string; resolvedFrom?: string; resolvedTo?: string;
   search?: string;
   status?: string;
   categoryId?: number;
@@ -297,6 +299,9 @@ export async function getTickets(
     query.set("sortOrder", params.sortOrder);
   }
 
+  for (const key of ["statusGroup", "updatedFrom", "updatedTo", "resolvedFrom", "resolvedTo"] as const) {
+    if (params[key]) query.set(key, params[key]!);
+  }
   const queryString = query.toString();
   const endpoint = `/api/tickets${queryString ? `?${queryString}` : ""}`;
   const res = await authFetch(endpoint);

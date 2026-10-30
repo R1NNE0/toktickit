@@ -1,3 +1,4 @@
+import type { RequesterFilters } from "../requester-dashboard-api.js";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Ticket,
@@ -9,23 +10,26 @@ import {
 import { useAuth } from "../context/AuthContext.js";
 
 interface MyTicketsProps {
+  entry?: RequesterFilters;
+  navigationVersion?: number;
   onNavigateCreate?: () => void;
   onSelectTicket?: (ticketId: number) => void;
 }
 
 export const MyTickets: React.FC<MyTicketsProps> = ({
-  onNavigateCreate,
+  onNavigateCreate, entry = {}, navigationVersion = 0,
   onSelectTicket,
 }) => {
   const { user: currentRequester } = useAuth();
   const generation = useRef(0);
-  const [sortBy, setSortBy] = useState("createdAt");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [sortBy, setSortBy] = useState<string>(entry.sortBy ?? "createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(entry.sortOrder ?? "desc");
 
   // Filter States
   const [search, setSearch] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
-  const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
+  const [selectedStatus, setSelectedStatus] = useState<string>(entry.status ?? "ALL");
+  const [scope, setScope] = useState<RequesterFilters>(() => { const { status, sortBy, sortOrder, ...filters } = entry; return filters; });
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedPriority, setSelectedPriority] = useState<string>("ALL");
   const [page, setPage] = useState<number>(1);
@@ -80,6 +84,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
         selectedCategory !== "ALL" ? parseInt(selectedCategory, 10) : undefined;
 
       const res = await getTickets({
+        ...scope,
         search: debouncedSearch,
         status: selectedStatus,
         categoryId: categoryIdNum,
@@ -103,7 +108,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
       if (version === generation.current) setLoading(false);
     }
   }, [
-    currentRequester, sortBy, sortOrder,
+    currentRequester, sortBy, sortOrder, scope, navigationVersion,
     debouncedSearch,
     selectedStatus,
     selectedCategory,
@@ -120,6 +125,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
 
   // Clear filters handler
   const handleClearFilters = () => {
+    setScope({});
     setSearch("");
     setDebouncedSearch("");
     setSelectedStatus("ALL");
@@ -129,7 +135,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
   };
 
   const hasActiveFilters =
-    search.trim() !== "" ||
+    Object.values(scope).some(Boolean) || search.trim() !== "" ||
     selectedStatus !== "ALL" ||
     selectedCategory !== "ALL" ||
     selectedPriority !== "ALL";
@@ -186,6 +192,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
 
   return (
     <div className="my-tickets-container">
+      {(scope.statusGroup || scope.updatedFrom || scope.resolvedFrom) && <p aria-label="Active Ticket filters">Active filters: {[scope.statusGroup, scope.updatedFrom && `Updated from ${scope.updatedFrom} to ${scope.updatedTo} (exclusive)`, scope.resolvedFrom && `Resolved from ${scope.resolvedFrom} to ${scope.resolvedTo} (exclusive)`].filter(Boolean).join("; ")}</p>}
       {/* Top Banner / Actions */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
         <div>
@@ -250,6 +257,7 @@ export const MyTickets: React.FC<MyTicketsProps> = ({
               value={selectedStatus}
               onChange={(e) => {
                 setSelectedStatus(e.target.value);
+                setScope(previous => ({ updatedFrom: previous.updatedFrom, updatedTo: previous.updatedTo }));
                 setPage(1);
               }}
               aria-label="Filter by status"

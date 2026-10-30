@@ -1,3 +1,5 @@
+import { RequesterDashboard } from "./components/RequesterDashboard.js";
+import type { RequesterFilters } from "./requester-dashboard-api.js";
 import { StaffDashboard } from "./components/StaffDashboard.js";
 import type { ListFilters } from "./staff-dashboard-api.js";
 import { canLeaveActions } from "./action-ui.js";
@@ -32,12 +34,13 @@ function MainContent() {
   const auth = useAuth();
   const currentRequester = auth.user;
   const [changingPassword, setChangingPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>(auth.user?.role === "REQUESTER" ? "my-tickets" : "dashboard");
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [isFormDirty, setIsFormDirty] = useState<boolean>(false);
   const [queueNavigation, setQueueNavigation] = useState(0);
 
   const [queueEntry, setQueueEntry] = useState<{ version: number; filters: ListFilters } | null>(null);
+  const [requesterEntry, setRequesterEntry] = useState<{ version: number; filters: RequesterFilters } | null>(null);
   const [selectedActionId, setSelectedActionId] = useState<number>();
 
   // Hash deep link support (e.g. #/tickets/123)
@@ -73,6 +76,7 @@ function MainContent() {
       if (!confirmLeave) return;
     }
     setSelectedTicketId(null); setSelectedActionId(undefined);
+    if (tab === "my-tickets") setRequesterEntry(value => value ?? { version: 0, filters: {} });
     if (tab === "staff-queue") setQueueEntry(value => value ?? { version: 0, filters: {} });
     setQueueNavigation(value => value + 1);
     if (window.location.hash.startsWith("#/tickets/")) {
@@ -156,36 +160,25 @@ function MainContent() {
               </div>
             </div>
 
-            {/* Tab Navigation Views */}
-            {activeTab === "create-ticket" ? (
-              <CreateTicket
-                onViewTicket={id => { setSelectedTicketId(id); setActiveTab("my-tickets"); setIsFormDirty(false); }}
-                onSuccessNavigate={() => {
-                  setSelectedTicketId(null);
-                  setActiveTab("my-tickets");
-                }}
-                onDirtyChange={(dirty) => setIsFormDirty(dirty)}
-              />
-            ) : selectedTicketId ? (
-              <TicketDetail
-                key={selectedTicketId}
-                ticketId={selectedTicketId}
-                onBack={() => {
-                  setSelectedTicketId(null);
-                  setActiveTab("my-tickets");
-                }}
-              />
-            ) : (
-              <MyTickets
-                onNavigateCreate={() => {
-                  setSelectedTicketId(null);
-                  setActiveTab("create-ticket");
-                }}
-                onSelectTicket={(ticketId) => {
-                  setSelectedTicketId(ticketId);
-                }}
-              />
-            )}
+            <div hidden={selectedTicketId !== null || activeTab !== "dashboard"}>
+              <RequesterDashboard navigationVersion={queueNavigation}
+                onCreate={() => handleNavigate("create-ticket")}
+                onOpenTicket={setSelectedTicketId}
+                onDrilldown={entry => { setRequesterEntry(old => ({ version: (old?.version ?? 0) + 1, filters: entry.filters })); setActiveTab("my-tickets"); }} />
+            </div>
+            {requesterEntry && <div hidden={selectedTicketId !== null || activeTab !== "my-tickets"}>
+              <MyTickets key={requesterEntry.version} entry={requesterEntry.filters} navigationVersion={queueNavigation}
+                onNavigateCreate={() => handleNavigate("create-ticket")} onSelectTicket={setSelectedTicketId} />
+            </div>}
+            {selectedTicketId ? <TicketDetail key={selectedTicketId} ticketId={selectedTicketId} onBack={() => {
+              setSelectedTicketId(null); setQueueNavigation(v => v + 1);
+              if (activeTab === "my-tickets") setRequesterEntry(old => old ?? { version: 0, filters: {} });
+              if (window.location.hash.startsWith("#/tickets/")) window.location.hash = "";
+            }} /> : activeTab === "create-ticket" && <CreateTicket
+              onViewTicket={id => { setSelectedTicketId(id); setActiveTab("my-tickets"); setIsFormDirty(false); }}
+              onSuccessNavigate={() => handleNavigate("my-tickets")}
+              onDirtyChange={setIsFormDirty} />}
+
           </div>
         )}
 

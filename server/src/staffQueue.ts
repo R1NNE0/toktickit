@@ -1,3 +1,4 @@
+import { activeStatuses, dashboardFilters } from "./dashboardQueries.js";
 import { Prisma, Priority } from "@prisma/client";
 import type { Request, Response } from "express";
 import { requireNormal, reject } from "./auth/http.js";
@@ -8,17 +9,19 @@ import { getPrisma } from "./prisma.js";
 export const priorityOrder = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 export const statusOrder = ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CLOSED", "REOPENED", "CANCELLED"] as const;
 
-export function staffQuery(query: Record<string, unknown>) {
-  const { itPriority, ownerId, ...common } = query;
+export function staffQuery(query: Record<string, unknown>, userId?: number) {
+  const { itPriority, ownerId, ...rest } = query;
+  const { common, statusGroup, updated, resolved } = dashboardFilters(rest);
   const invalid = (): never => reject(400, "INVALID_QUERY", "Invalid ticket query parameters.");
   if (itPriority !== undefined && (typeof itPriority !== "string" || !Object.values(Priority).includes(itPriority as Priority))) invalid();
-  if (ownerId !== undefined && (typeof ownerId !== "string" || (ownerId !== "unassigned"
+  if (ownerId !== undefined && (typeof ownerId !== "string" || (ownerId !== "unassigned" && ownerId !== "me"
     && (!/^[1-9]\d*$/.test(ownerId) || Number(ownerId) > 2147483647)))) invalid();
+  if (ownerId === "me" && !userId) invalid();
   const itSort = common.sortBy === "itPriority";
   const parsed = requesterQuery(itSort ? { ...common, sortBy: "requestedPriority" } : common);
   if (![10, 20, 50].includes(parsed.pageSize)) invalid();
-  return { ...parsed, sortBy: itSort ? "itPriority" : parsed.sortBy, itPriority: itPriority as string | undefined,
-    ownerId: ownerId === undefined ? undefined : ownerId === "unassigned" ? null : Number(ownerId) };
+  return { ...parsed, statusGroup, updated, resolved, sortBy: itSort ? "itPriority" : parsed.sortBy, itPriority: itPriority as string | undefined,
+    ownerId: ownerId === undefined ? undefined : ownerId === "unassigned" ? null : ownerId === "me" ? userId : Number(ownerId) };
 }
 
 const columns: Record<string, Prisma.Sql> = {
@@ -41,11 +44,14 @@ const queueSelect = {
 export async function staffQueue(req: Request, res: Response) {
   if (!["IT_STAFF", "ADMINISTRATOR"].includes(requireNormal(req).role))
     reject(403, "FORBIDDEN", "Ticket Queue is available to IT Staff or Administrator.");
-  const q = staffQuery(req.query), db = getPrisma(), filters: Prisma.Sql[] = [Prisma.sql`TRUE`];
+  const q = staffQuery(req.query, requireNormal(req).id), db = getPrisma(), filters: Prisma.Sql[] = [Prisma.sql`TRUE`];
   if (q.search) filters.push(Prisma.sql`(position(lower(${q.search}) in lower("ticketNumber")) > 0
     OR position(lower(${q.search}) in lower(summary)) > 0 OR position(lower(${q.search}) in lower(description)) > 0)`);
   if (q.categoryId !== undefined) filters.push(Prisma.sql`"categoryId" = ${q.categoryId}`);
   if (q.status) filters.push(Prisma.sql`"currentStatus"::text = ${q.status}`);
+  if (q.statusGroup) filters.push(Prisma.sql`"currentStatus"::text IN (${Prisma.join(q.statusGroup === "active" ? activeStatuses : ["RESOLVED", "CLOSED"])})`);
+  if (q.updated) filters.push(Prisma.sql`"updatedAt">=(${q.updated.from}::timestamptz AT TIME ZONE 'UTC') AND "updatedAt"<(${q.updated.to}::timestamptz AT TIME ZONE 'UTC')`);
+  if (q.resolved) filters.push(Prisma.sql`"resolvedAt">=${q.resolved.from}::timestamptz AND "resolvedAt"<${q.resolved.to}::timestamptz`);
   if (q.priority) filters.push(Prisma.sql`"requestedPriority"::text = ${q.priority}`);
   if (q.itPriority) filters.push(Prisma.sql`"itPriority"::text = ${q.itPriority}`);
   if (q.ownerId === null) filters.push(Prisma.sql`"ownerId" IS NULL`);

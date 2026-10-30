@@ -1,3 +1,4 @@
+import { outstandingPredicate } from "./dashboardQueries.js";
 import { Router, type Request } from "express";
 import { Prisma, type ActionTaken, type Ticket, type TicketStatus } from "@prisma/client";
 import { getPrisma } from "./prisma.js";
@@ -162,8 +163,7 @@ function handler(resource: Resource) {
     const result = await getPrisma().$transaction(async tx => {
       if (resource === "outstanding") {
         // Count and bounded rows share this predicate and repeatable-read snapshot.
-        const predicate = Prisma.sql`a."assigneeId" = ${user.id} AND a.status IN ('PLANNED', 'IN_PROGRESS')
-          AND a.cycle=t."workCycle" AND t."currentStatus" IN ('NEW','OPEN','IN_PROGRESS','WAITING_FOR_REQUESTER','REOPENED')`;
+        const predicate = outstandingPredicate(user.id);
         const counts = await tx.$queryRaw<{ total: bigint }[]>(Prisma.sql`SELECT count(*) AS total FROM "ActionTaken" a JOIN "Ticket" t ON t.id=a."ticketId" WHERE ${predicate}`);
         const rows = await tx.$queryRaw<{ id: number; ticketId: number; cycle: number; status: string; descriptionExcerpt: string; createdAt: Date;
           ticketNumber: string; summary: string; currentStatus: TicketStatus }[]>(Prisma.sql`

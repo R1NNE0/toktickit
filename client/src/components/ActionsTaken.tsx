@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, type Ticket } from "../api.js";
 import type { CurrentUser } from "../auth-client.js";
-import { getTicketActions, getActionTicket, type ActionPage, type ActionRecord, type ActionTicket, type ActionMutation } from "../actions-api.js";
+import { getTicketActions, getActionTicket, getAction, type ActionPage, type ActionRecord, type ActionTicket, type ActionMutation } from "../actions-api.js";
 import { actionAllowed, type ActionMode } from "../action-ui.js";
 import { ActionDetails } from "./ActionDetails.js";
 import { ActionDialog } from "./ActionDialog.js";
-type Props = { ticket: Ticket; user: CurrentUser; onTicketChange: (ticket: Ticket) => void };
+type Props = { focusActionId?: number; ticket: Ticket; user: CurrentUser; onTicketChange: (ticket: Ticket) => void };
 
 export function ActionsTaken(props: Props) {
   if (!props.user.isActive || props.user.mustChangePassword) return null;
   return <ActionsTakenView key={`${props.ticket.id}:${props.user.id}:${props.user.role}`} {...props} />;
 }
-function ActionsTakenView({ ticket, user, onTicketChange }: Props) {
+function ActionsTakenView({ ticket, user, onTicketChange, focusActionId }: Props) {
+  const [selectedAction, setSelectedAction] = useState<ActionRecord | null>(null);
+  const selectedFocused = useRef<number>();
   const [context, setContext] = useState(ticket);
   const [data, setData] = useState<ActionPage<ActionRecord> | null>(null), [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true), [notice, setNotice] = useState("");
@@ -49,13 +51,19 @@ function ActionsTakenView({ ticket, user, onTicketChange }: Props) {
     controller.current?.abort(); const request = new AbortController(); controller.current = request;
     setLoading(true); setError(null);
     try {
-      const [actions, fresh] = await Promise.all([getTicketActions(ticket.id, page, pageSize, request.signal), withTicket ? getActionTicket(ticket.id, request.signal) : undefined]);
+      const [actions, fresh, selected] = await Promise.all([getTicketActions(ticket.id, page, pageSize, request.signal), withTicket ? getActionTicket(ticket.id, request.signal) : undefined, focusActionId ? getAction(ticket.id, focusActionId, request.signal) : undefined]);
       if (request.signal.aborted || !alive.current) return;
-      setData(actions); if (fresh) { setContext(fresh); onChange.current(fresh); }
+      setSelectedAction(selected ?? null); setData(actions); if (fresh) { setContext(fresh); onChange.current(fresh); }
     } catch (e) { if (!request.signal.aborted && alive.current) { setError(e instanceof Error ? e : new Error("Unable to load Actions.")); setData(null); } }
     finally { if (!request.signal.aborted && alive.current) setLoading(false); }
   }
-  useEffect(() => { void reload(true); return () => controller.current?.abort(); }, [page, pageSize, ticket.workflowVersion, ticket.workCycle]);
+  useEffect(() => { void reload(true); return () => controller.current?.abort(); }, [page, pageSize, ticket.workflowVersion, ticket.workCycle, focusActionId]);
+  useEffect(() => {
+    if (!loading && selectedAction && selectedFocused.current !== selectedAction.id) {
+      const target = document.getElementById(`action-title-${selectedAction.id}`);
+      if (target) { target.focus(); selectedFocused.current = selectedAction.id; }
+    }
+  }, [loading, selectedAction]);
   function onSaved(result: ActionMutation) {
     focusSaved.current = true;
     dialogTrigger.current = null;
@@ -67,7 +75,8 @@ function ActionsTakenView({ ticket, user, onTicketChange }: Props) {
   if (expired) return <p role="status">Session changed. Please sign in again to view Actions.</p>;
   const blockedRead = error instanceof ApiError && [401,403,404].includes(error.status);
   // A confirmed write/replay is authoritative even if a concurrent list read is older.
-  const visibleActions = data?.data.map(a => saved?.id === a.id && saved.version > a.version ? saved : a) ?? [];
+  const listed = data?.data ?? [];
+  const visibleActions = (selectedAction && !listed.some(a => a.id === selectedAction.id) ? [selectedAction, ...listed] : listed).map(a => saved?.id === a.id && saved.version > a.version ? saved : a);
   return <section className="zen-card mb-4 actions-taken" aria-labelledby="actions-title">
     <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3"><h2 ref={heading} tabIndex={-1} className="h5 mb-0" id="actions-title">Actions Taken</h2>
       <div className="d-flex gap-2 flex-wrap">
@@ -90,7 +99,7 @@ function ActionsTakenView({ ticket, user, onTicketChange }: Props) {
       {visibleActions.map((action, index) => <div key={action.id}>
         {(index === 0 || visibleActions[index - 1].cycle !== action.cycle) && <h3 className="h6 mt-4">Work cycle {action.cycle}{action.cycle === context.workCycle ? " — Current" : " — Historical"}</h3>}
         <article className="action-card" aria-labelledby={`action-title-${action.id}`}>
-          <h4 id={`action-title-${action.id}`} className="h6">Action #{action.id}</h4><ActionDetails action={action} />
+          <h4 tabIndex={-1} id={`action-title-${action.id}`} className="h6">Action #{action.id}</h4><ActionDetails action={action} />
           {(action.cycle !== context.workCycle || action.status === "CANCELLED") && <p className="small">Read-only {action.cycle !== context.workCycle ? "previous-cycle" : "cancelled"} Action.</p>}
           <div className="d-flex flex-wrap gap-2">
             {(["edit", "start", "complete", "cancel", "history"] as const).filter(mode => allowed(mode, action)).map(mode =>

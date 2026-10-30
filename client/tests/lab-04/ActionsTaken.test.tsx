@@ -27,6 +27,15 @@ beforeEach(() => {
   vi.spyOn(api, "transitionAction").mockResolvedValue(mutation({ status: "IN_PROGRESS", version: 3 }));
 });
 describe("L4-UI-01/06 Actions Taken", () => {
+  it("focuses the dashboard-selected Action outside the first list page without scanning pages", async () => {
+    vi.spyOn(api, "getAction").mockResolvedValue({ ...action, id: 99 });
+    render(<ActionsTaken ticket={ticket} user={staff} onTicketChange={vi.fn()} focusActionId={99} />);
+    const heading = await screen.findByRole("heading", { name: "Action #99" });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(api.getAction).toHaveBeenCalledWith(ticket.id, 99, expect.any(AbortSignal));
+    expect(api.getTicketActions).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("heading", { name: "Action #5" })).toBeInTheDocument();
+  });
   it.each([staff, admin])("shows shared work and privileged controls to $role without misattributing performance", async user => {
     show(user); await screen.findByRole("heading", { name: "Action #5" });
     expect(screen.getByText("Inspect router")).toBeInTheDocument();

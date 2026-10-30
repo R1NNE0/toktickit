@@ -1,3 +1,5 @@
+import { StaffDashboard } from "./components/StaffDashboard.js";
+import type { ListFilters } from "./staff-dashboard-api.js";
 import { canLeaveActions } from "./action-ui.js";
 import { useState, useEffect } from "react";
 import { Header } from "./components/Header.js";
@@ -30,10 +32,13 @@ function MainContent() {
   const auth = useAuth();
   const currentRequester = auth.user;
   const [changingPassword, setChangingPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>(auth.user?.role === "IT_STAFF" ? "staff-queue" : "my-tickets");
+  const [activeTab, setActiveTab] = useState<string>(auth.user?.role === "REQUESTER" ? "my-tickets" : "dashboard");
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [isFormDirty, setIsFormDirty] = useState<boolean>(false);
   const [queueNavigation, setQueueNavigation] = useState(0);
+
+  const [queueEntry, setQueueEntry] = useState<{ version: number; filters: ListFilters } | null>(null);
+  const [selectedActionId, setSelectedActionId] = useState<number>();
 
   // Hash deep link support (e.g. #/tickets/123)
   useEffect(() => {
@@ -43,10 +48,14 @@ function MainContent() {
         window.history.replaceState(null, "", window.location.pathname + window.location.search + acceptedHash);
         return;
       }
+      const previousHash = acceptedHash;
       acceptedHash = window.location.hash;
       const match = window.location.hash.match(/^#\/tickets\/(\d+)$/);
       if (match) {
-        setSelectedTicketId(Number(match[1]));
+        setSelectedActionId(undefined); setSelectedTicketId(Number(match[1]));
+      } else if (!acceptedHash && /^#\/tickets\/\d+$/.test(previousHash)) {
+        setSelectedTicketId(null); setSelectedActionId(undefined);
+        setQueueNavigation(value => value + 1);
       }
     };
     handleHash();
@@ -63,12 +72,13 @@ function MainContent() {
       );
       if (!confirmLeave) return;
     }
-    setSelectedTicketId(null);
+    setSelectedTicketId(null); setSelectedActionId(undefined);
+    if (tab === "staff-queue") setQueueEntry(value => value ?? { version: 0, filters: {} });
+    setQueueNavigation(value => value + 1);
     if (window.location.hash.startsWith("#/tickets/")) {
       window.location.hash = "";
     }
     setActiveTab(tab);
-    if (tab === "staff-queue") setQueueNavigation(value => value + 1);
   };
 
   // Lab 1 System Check state for backward compatibility
@@ -106,37 +116,26 @@ function MainContent() {
           : auth.user.mustChangePassword || changingPassword ? <ChangePassword mandatory={auth.user.mustChangePassword}
               onSubmit={async body => { await auth.changePassword(body); setChangingPassword(false); }}
               onCancel={() => setChangingPassword(false)} />
-          : auth.user.role === "IT_STAFF" ? (
-            <>
-              <div hidden={selectedTicketId !== null}>
-                <StaffTicketQueue navigationVersion={queueNavigation} onOpenDetail={setSelectedTicketId} />
-              </div>
-            {selectedTicketId && (
-              <StaffTicketDetail
-                key={selectedTicketId}
-                ticketId={selectedTicketId}
-                onBack={() => {
-                  setSelectedTicketId(null);
-                  setQueueNavigation(value => value + 1);
-                  if (window.location.hash.startsWith("#/tickets/")) window.location.hash = "";
-                }}
-              />
-            )}
-            </>
-          )
           : auth.user.role !== "REQUESTER" ? (
-            selectedTicketId ? (
-              <TicketDetail
-                key={selectedTicketId}
-                ticketId={selectedTicketId}
-                onBack={() => {
-                  setSelectedTicketId(null);
+            <>
+              <div hidden={selectedTicketId !== null || activeTab !== "dashboard"}>
+                <StaffDashboard role={auth.user.role} navigationVersion={queueNavigation}
+                  onDrilldown={entry => { if (!canLeaveActions()) return; setQueueEntry(old => ({ version: (old?.version ?? 0) + 1, filters: entry.filters })); setActiveTab("staff-queue"); }}
+                  onOpenTicket={(id, actionId) => { if (!canLeaveActions()) return; setSelectedActionId(actionId); setSelectedTicketId(id); }} />
+              </div>
+              {queueEntry && <div hidden={selectedTicketId !== null || activeTab !== "staff-queue"}>
+                <StaffTicketQueue key={queueEntry.version} entry={queueEntry.filters} role={auth.user.role} navigationVersion={queueNavigation}
+                  onOpenDetail={id => { setSelectedActionId(undefined); setSelectedTicketId(id); }} />
+              </div>}
+              {!selectedTicketId && activeTab === "user-management" && auth.user.role === "ADMINISTRATOR" && <UserManagement />}
+              {selectedTicketId && (() => {
+                const Detail = auth.user.role === "IT_STAFF" ? StaffTicketDetail : TicketDetail;
+                return <Detail key={selectedTicketId} ticketId={selectedTicketId} focusActionId={selectedActionId} onBack={() => {
+                  setSelectedTicketId(null); setSelectedActionId(undefined); setQueueNavigation(v => v + 1);
                   if (window.location.hash.startsWith("#/tickets/")) window.location.hash = "";
-                }}
-              />
-            ) : (
-              <UserManagement />
-            )
+                }} />;
+              })()}
+            </>
           )
           : currentRequester && (
           <div>

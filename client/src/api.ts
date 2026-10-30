@@ -163,12 +163,14 @@ export interface ResolutionIndicationResponse {
 
 export interface StaffQueueParams extends GetTicketsParams {
   itPriority?: string;
-  ownerId?: number | "unassigned";
+  ownerId?: number | "unassigned" | "me";
+  statusGroup?: "active" | "resolved";
+  updatedFrom?: string; updatedTo?: string; resolvedFrom?: string; resolvedTo?: string;
 }
 export interface StaffQueueResponse { data: StaffTicketRow[]; pagination: PaginationMeta; }
 export class QueueError extends Error {
   constructor(public status: number) {
-    super(status === 403 ? "Access denied. Ticket Queue is available to IT Staff only."
+    super(status === 403 ? "Access denied. Ticket Queue is available to IT Staff or Administrator."
       : status === 400 ? "Invalid queue filters. Check your query and try again."
       : "Unable to load the Ticket Queue. Please try again.");
   }

@@ -1,0 +1,112 @@
+{
+  "issue": 55,
+  "preparedAt": "2026-10-30T16:09:02.528899+00:00",
+  "handout": {
+    "file": "SE+Lab+4.pdf",
+    "sha256": "fef3cb676aa8cbe692e4d9205ba3e15aaa7b118f644d8da7ccd4252807df0074",
+    "readMethod": "Local PDF streams decoded with embedded ToUnicode mappings; relevant sections 9-14 and submission Parts 1-9 reviewed; no dependency installed."
+  },
+  "reusedEvidence": "issue-54-results.json; no full regression rerun",
+  "documentationChecks": {
+    "brokenLocalLinks": [],
+    "missingRequiredContractAndBackendClientFiles": [],
+    "issue54Json": "parsed successfully",
+    "checkedFiles": [
+      "README.md",
+      "docs/lab-04/release.md",
+      "artifacts/lab-04/README.md",
+      "artifacts/lab-04/screenshots/README.md"
+    ],
+    "lab4JsonFiles": "parsed successfully"
+  },
+  "captureRunnerTypecheck": {
+    "command": "server: node node_modules/typescript/bin/tsc --noEmit --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck --esModuleInterop --types node --jsx react-jsx ../e2e/playwright.lab4-evidence.config.ts ../e2e/evidence/lab-04.capture.spec.ts",
+    "exitCode": 0
+  },
+  "capture": {
+    "executed": true,
+    "pngCount": 46,
+    "manifestExists": true,
+    "configuration": "e2e/playwright.lab4-evidence.config.ts",
+    "selectsOnly": "lab-04.capture.spec.ts",
+    "status": "Six capture scenarios passed; PNG inventory, hashes and dimensions verified; human sign-off pending",
+    "previousBlocker": "Automatic approval review rejected the database-identity check because its selected model was at capacity. Identity command and following capture command were not executed.",
+    "runs": [
+      {
+        "command": "npx.cmd playwright test --config playwright.lab4-evidence.config.ts",
+        "capturedAt": "2026-10-30T16:13:44.245Z",
+        "scenarios": [
+          {
+            "title": "Lab 4 release captures at desktop",
+            "status": "passed"
+          },
+          {
+            "title": "Lab 4 release captures at tablet",
+            "status": "passed"
+          },
+          {
+            "title": "Lab 4 release captures at mobile",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "command": "$env:LAB4_EVIDENCE_APPEND='1'; npx.cmd playwright test --config playwright.lab4-evidence.config.ts -g 'Staff assigned work'",
+        "capturedAt": "2026-10-30T16:15:20.880Z",
+        "scenarios": [
+          {
+            "title": "Staff assigned work at desktop",
+            "status": "passed"
+          },
+          {
+            "title": "Staff assigned work at tablet",
+            "status": "passed"
+          },
+          {
+            "title": "Staff assigned work at mobile",
+            "status": "passed"
+          }
+        ]
+      }
+    ],
+    "manifest": "../screenshots/manifest.json",
+    "checksRecorded": 15,
+    "baseRevision": "7ab7c86f232a37c47f28d1ee5796b3cea5082386",
+    "branchFromHeadMetadata": "docs/lab4-release-evidence",
+    "gitCommandsExecuted": false
+  },
+  "databaseSafety": {
+    "configuredPort": "127.0.0.1:55433",
+    "configuredDatabase": "toktickit_lab3_test",
+    "configuredUser": "lab3_test",
+    "isolatedVolumeVerified": true,
+    "actualIdentityCheckExecuted": true,
+    "originalContainerState": "exited",
+    "restoredContainerState": "stopped successfully",
+    "databaseMutationsPerformed": true,
+    "verifiedActualDatabase": "toktickit_lab3_test",
+    "verifiedActualUser": "lab3_test",
+    "mutationScope": "Existing guarded disposable schema reset and synthetic browser fixture operations only"
+  },
+  "pending": [
+    "Human visual/accessibility sign-off",
+    "Literal handout E2E filename alignment",
+    "Actual GitHub history/board/reviews/chronology",
+    "Student-managed AI/reflection and reviewer records",
+    "Actual final-main SHA and complete passing logs",
+    "Single readable Answer Part 1-9 PDF"
+  ],
+  "protectedFiles": "No approved contract, student-managed record, or Lab 3 evidence was modified.",
+  "updatedAt": "2026-10-30T16:16:36.467872+00:00",
+  "visualInspection": {
+    "kind": "Representative AI inspection, not student/peer human sign-off",
+    "files": [
+      "actions-taken/append-only-history-desktop.png",
+      "staff-dashboard/operational-mobile.png",
+      "requester-dashboard/owned-activity-mobile.png",
+      "actions-taken/create-follow-up-validation-mobile.png",
+      "staff-dashboard/assigned-work-mobile.png",
+      "workflow/resolution-confirmation-desktop.png"
+    ]
+  }
+}

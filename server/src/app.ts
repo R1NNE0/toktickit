@@ -1,3 +1,6 @@
+import { requesterDashboard } from "./requesterDashboard.js";
+import { dashboardFilters, activeStatuses } from "./dashboardQueries.js";
+import { staffDashboard } from "./staffDashboard.js";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import path from "path";
@@ -12,6 +15,7 @@ import { requireRequester } from "./middleware/requesterAuth.js";
 import { createAuth, authErrorHandler, requireNormal } from "./auth/http.js";
 import { generateTicketNumber } from "./utils/ticketNumber.js";
 import { staffQueue } from "./staffQueue.js";
+import { actionsRouter } from "./actionsTaken.js";
 import {
   getStaffAssignees,
   getStaffTicketDetail,
@@ -19,7 +23,7 @@ import {
   updateTicketOwner,
   updateTicketPriority,
   updateTicketStatus,
-  formatTicketDetail,
+  readTicketDetail,
 } from "./staffTicket.js";
 import {
   getPublicComments,
@@ -41,6 +45,10 @@ export const app = express();
 
 const auth = createAuth();
 app.use(cors({ origin: auth.config.origin, credentials: true }));
+// Set before JSON/auth middleware so private workflow/security errors are not cached.
+app.use(["/api/tickets", "/api/staff", "/api/admin", "/api/dashboard"], (_req, res, next) => {
+  res.set("Cache-Control", "no-store"); next();
+});
 app.use(express.json({ limit: "128kb" }));
 app.use("/api", auth.load);
 app.use("/api/auth", auth.router);
@@ -57,6 +65,9 @@ app.use(["/api/tickets", "/api/attachments", "/api/staff", "/api/admin"], (req, 
 });
 
 // Max 32-bit signed integer boundary (PostgreSQL serial/int)
+app.use(actionsRouter);
+app.get("/api/dashboard/staff", asyncRoute(staffDashboard));
+app.get("/api/dashboard/requester", asyncRoute(requesterDashboard));
 const MAX_INT = 2147483647;
 
 function requireAttachmentActor(req: Request) {
@@ -202,7 +213,8 @@ app.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const requesterId = req.requesterId!;
-      const query = requesterQuery(req.query);
+      const extra = dashboardFilters(req.query);
+      const query = requesterQuery(extra.common);
       const { search, categoryId: filterCategoryId, status: filterStatus, priority: filterPriority,
         sortBy: sortField, sortOrder: sortDirection, page: parsedPage, pageSize: parsedLimit } = query;
 
@@ -210,6 +222,10 @@ app.get(
       const where: any = {
         requesterId,
       };
+
+      if (extra.statusGroup) where.currentStatus = { in: extra.statusGroup === "active" ? [...activeStatuses] : ["RESOLVED", "CLOSED"] };
+      if (extra.updated) where.updatedAt = { gte: extra.updated.from, lt: extra.updated.to };
+      if (extra.resolved) where.resolvedAt = { gte: extra.resolved.from, lt: extra.resolved.to };
 
       if (filterCategoryId) {
         where.categoryId = filterCategoryId;
@@ -253,6 +269,7 @@ app.get(
             requestedPriority: true,
             itPriority: true,
             currentStatus: true,
+            workflowVersion: true, workCycle: true, resolvedAt: true,
             createdAt: true,
             updatedAt: true,
             requesterId: true,
@@ -514,21 +531,7 @@ app.get(
       throw new HttpError(400, "INVALID_QUERY", "Requester identity comes from the authenticated session.");
     }
     const ticketId = positiveId(req.params.id, "ticket");
-    const prisma = getPrisma();
-    const ticket = await prisma.ticket.findUnique({
-      where: { id: ticketId },
-      include: ticketDetailInclude,
-    });
-
-    if (!ticket) {
-      throw new HttpError(404, "NOT_FOUND", "Ticket not found");
-    }
-
-    if (user.role === "REQUESTER" && ticket.requesterId !== user.id) {
-      throw new HttpError(404, "NOT_FOUND", "Ticket not found");
-    }
-
-    res.status(200).json(formatTicketDetail(ticket));
+    res.status(200).json(await readTicketDetail(ticketId, user));
   })
 );
 

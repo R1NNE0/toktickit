@@ -31,7 +31,7 @@ test('E2E-04 create, list, detail, real attachment bytes, removal and cross-Requ
   await page.getByRole('button', { name: 'Confirm Soft Removal' }).click();
   await expect(page.getByRole('button', { name: 'Download request.pdf' })).toHaveCount(0);
   expect((await page.request.get(apiURL + `/api/attachments/${attachment.id}/download`)).status()).toBe(403);
-  await navigate(page, 'My Tickets'); await expect(page.getByText(created.ticketNumber).first()).toBeVisible();
+  await navigate(page, 'My Tickets'); await expect(page.locator('.my-tickets-container').getByText(created.ticketNumber).first()).toBeVisible();
   expect((await page.request.get(apiURL + `/api/tickets/${hidden.id}`)).status()).toBe(404);
   const context = await browser.newContext({ baseURL: 'http://localhost:5174' }), other = await context.newPage();
   try {

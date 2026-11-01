@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { normalizeEmail } from "../src/auth/password.js";
 import { prepareInitialPassword, terminalHandover, type Handover } from "../scripts/initial-credentials.js";
 import { getPrisma } from "../src/prisma.js";
+import { seedLab4Fixtures } from "./lab4-fixtures.js";
 
 export async function seedLab3(prisma: PrismaClient, handover: Handover) {
 
@@ -217,13 +218,24 @@ export async function seedLab3(prisma: PrismaClient, handover: Handover) {
 
 
 }
+// Preserve seedLab3 for legacy migration/regression consumers; the normal CLI
+// seeds the complete current application, including the create-only Lab 4 graphs.
+export async function seedLab4(prisma: PrismaClient, handover: Handover) {
+  await seedLab3(prisma, handover);
+  return seedLab4Fixtures(prisma);
+}
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (!process.stdin.isTTY || !process.stdout.isTTY || !process.env.DATABASE_URL) {
     console.error("Use a private interactive terminal and explicit DATABASE_URL; never redirect initial passwords.");
     process.exitCode = 1;
   } else {
-    seedLab3(getPrisma(), terminalHandover)
-      .then(() => console.log("Create-only seed complete. Existing accounts and records were preserved."))
+    seedLab4(getPrisma(), terminalHandover)
+      .then(report => {
+        console.log("Create-only seed complete. Existing accounts and records were preserved.");
+        console.log("Lab 4 Ticket fixtures:", JSON.stringify(report));
+        if (report.changed.length) console.log("Changed fixture graphs were retained without reconciliation.");
+        if (report.unavailable.length) console.log("Some missing graphs were skipped because their account/reference prerequisites changed.");
+      })
       .catch(() => { console.error("Seed failed; no existing credentials were reset."); process.exitCode = 1; })
       .finally(() => getPrisma().$disconnect());
   }

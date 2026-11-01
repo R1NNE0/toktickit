@@ -1,0 +1,1012 @@
+{
+  "capturedAt": "2026-10-30T16:15:20.880Z",
+  "timezone": "Asia/Bangkok",
+  "revision": "7ab7c86f232a37c47f28d1ee5796b3cea5082386",
+  "branch": "docs/lab4-release-evidence",
+  "provenance": "HEAD/ref metadata read directly; no Git command executed. Dirty state not inspected; hashes identify captured product files. This is workspace evidence, not final-main verification.",
+  "command": "$env:LAB4_EVIDENCE_APPEND='1'; npx.cmd playwright test --config playwright.lab4-evidence.config.ts -g 'Staff assigned work'",
+  "source": "Actual Chromium renders of existing application; synthetic isolated PostgreSQL fixtures; explicitly labelled response injections only for feedback captures.",
+  "sourceSha256": {
+    "client/src/App.tsx": "6b88d6ce281e28761b69b576a8a32657c7eb7088cd6a60ba2f4d8ff5b769acf5",
+    "client/src/index.css": "c39ab300fefb95f1c6adba72680f9ecd214ed523be1d1090d49696c71eb4bfdf",
+    "client/src/components/ActionsTaken.tsx": "026924e1a79ef66368c4a6493e93c181e1c71bc94a27b53b8018292b7f8ce185",
+    "client/src/components/ActionDialog.tsx": "f38c4fa01dc3d8af31857da1153b9dd3aa797ac7bc8bc86f2570e5cb99e38c23",
+    "client/src/components/StaffDashboard.tsx": "e9b2b8925f5b78b79f6872a1b820d459301f14da34744adfc38c65a71d549339",
+    "client/src/components/RequesterDashboard.tsx": "dc9445fd9a3a51858589622da49eda94cfa052a70663ae62a03cb03ba8eb0829",
+    "server/src/staffDashboard.ts": "16e397107fdb90728224cc807976468ef813546ecafe2c6394c330e8bf096a0e",
+    "server/src/requesterDashboard.ts": "1b9418bc27659b1810fcdeee2b5563831f9f7c5440e218f91951c22642bd1ebd"
+  },
+  "scenarios": [
+    {
+      "title": "Lab 4 release captures at desktop",
+      "status": "passed"
+    },
+    {
+      "title": "Lab 4 release captures at tablet",
+      "status": "passed"
+    },
+    {
+      "title": "Lab 4 release captures at mobile",
+      "status": "passed"
+    },
+    {
+      "title": "Staff assigned work at desktop",
+      "status": "passed"
+    },
+    {
+      "title": "Staff assigned work at tablet",
+      "status": "passed"
+    },
+    {
+      "title": "Staff assigned work at mobile",
+      "status": "passed"
+    }
+  ],
+  "captures": [
+    {
+      "file": "staff-dashboard/operational-desktop.png",
+      "role": "IT_STAFF",
+      "state": "operational",
+      "capturedAt": "2026-10-30T16:13:09.742Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 1751
+      },
+      "sha256": "3d7f47e05209f3b4bbfc7ac313bd98200a03ca26fffaf4ad31d3824f44796df6",
+      "scope": "Full page"
+    },
+    {
+      "file": "workflow/resolution-blocked-no-actions-desktop.png",
+      "role": "IT_STAFF",
+      "state": "resolution-blocked-no-actions",
+      "capturedAt": "2026-10-30T16:13:10.232Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 2303
+      },
+      "sha256": "6017cb7bab3e3c6992a254bca9449229b207179f3d5e0421df01566a6b3e94f2",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/create-follow-up-validation-desktop.png",
+      "role": "IT_STAFF",
+      "state": "create-follow-up-validation",
+      "capturedAt": "2026-10-30T16:13:10.417Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "c0bcc35d20edd0f856292cc7b51a91d752976e4026c831dd568431b788e2ab90",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "actions-taken/edit-assignment-desktop.png",
+      "role": "IT_STAFF",
+      "state": "edit-assignment",
+      "capturedAt": "2026-10-30T16:13:10.723Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "6acb156dc8867c709639097a6e7c0e4e2c7300a2a238015c92d2fad75ad05be8",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "actions-taken/complete-attribution-desktop.png",
+      "role": "IT_STAFF",
+      "state": "complete-attribution",
+      "capturedAt": "2026-10-30T16:13:12.006Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "8524b2a87f6feff63a1d424c52116453c525d96436ab860f8c6289838e4c08a8",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "staff-dashboard/administrator-operational-desktop.png",
+      "role": "ADMINISTRATOR",
+      "state": "administrator-operational",
+      "capturedAt": "2026-10-30T16:13:12.806Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 1840
+      },
+      "sha256": "d0b49e245bc7275348c9dcfd7d6c14fd657b840bbaeb5b4d68fb0d591e1c942b",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/administrator-capability-boundary-desktop.png",
+      "role": "ADMINISTRATOR",
+      "state": "administrator-capability-boundary",
+      "capturedAt": "2026-10-30T16:13:14.982Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 3467
+      },
+      "sha256": "6144b9412b1ac7a0bdf0dec15bd354da2c5cb4b607511358bc465075dc6e6e60",
+      "scope": "Full page"
+    },
+    {
+      "file": "workflow/follow-up-resolution-gate-desktop.png",
+      "role": "IT_STAFF",
+      "state": "follow-up-resolution-gate",
+      "capturedAt": "2026-10-30T16:13:15.320Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 3990
+      },
+      "sha256": "8b615c178aefecd3d9be3b7733b4f5525a4db72241da5c30f439bb1769fde37c",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/multiple-actions-and-identities-desktop.png",
+      "role": "IT_STAFF",
+      "state": "multiple-actions-and-identities",
+      "capturedAt": "2026-10-30T16:13:15.485Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 3990
+      },
+      "sha256": "8209e290455fcc5c52724515c49af3e38cb28c34eb70893c1790c5dea5ad75be",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/append-only-history-desktop.png",
+      "role": "IT_STAFF",
+      "state": "append-only-history",
+      "capturedAt": "2026-10-30T16:13:18.771Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "f869cfb48c70f126213184e60497273275bffac6bcb8bfee419d62de7da63e3a",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "workflow/resolution-confirmation-desktop.png",
+      "role": "IT_STAFF",
+      "state": "resolution-confirmation",
+      "capturedAt": "2026-10-30T16:13:18.887Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "f8f7847705fdf7fa25b0de1d7ee6b188dda43139c17c2ae7cddeadd80036a891",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "workflow/resolved-terminal-read-only-desktop.png",
+      "role": "IT_STAFF",
+      "state": "resolved-terminal-read-only",
+      "capturedAt": "2026-10-30T16:13:19.255Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 4064
+      },
+      "sha256": "c3dc0c7be0ecd6d4b31d92e5eb6b2a2c4162e6fb565602a1952b3d46146868e0",
+      "scope": "Full page"
+    },
+    {
+      "file": "workflow/reopened-historical-cycle-desktop.png",
+      "role": "IT_STAFF",
+      "state": "reopened-historical-cycle",
+      "capturedAt": "2026-10-30T16:13:20.032Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 4176
+      },
+      "sha256": "ff31c5e9a98c71c4b6afb2d75da327a68d5e0a12361e582a77e495e6ee742a95",
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-dashboard/owned-activity-desktop.png",
+      "role": "REQUESTER",
+      "state": "owned-activity",
+      "capturedAt": "2026-10-30T16:13:20.789Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 1055
+      },
+      "sha256": "d4a86bde4e2e227cd48d461b58caacb71012fbc46fcfd2b9cf87e6e267d00ee0",
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-dashboard/active-drill-down-desktop.png",
+      "role": "REQUESTER",
+      "state": "active-drill-down",
+      "capturedAt": "2026-10-30T16:13:20.938Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 982
+      },
+      "sha256": "d6208ca71510826bbaa5bc588c24b68d309986fe29fb425f27e08eccf5484d30",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/requester-read-only-desktop.png",
+      "role": "REQUESTER",
+      "state": "requester-read-only",
+      "capturedAt": "2026-10-30T16:13:21.222Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 3480
+      },
+      "sha256": "6ab58a3b09c89c5d732d5ba26fc4350aea6e6787ea0f9bca8e55dc764a616248",
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-dashboard/foreign-ticket-safe-error-desktop.png",
+      "role": "REQUESTER",
+      "state": "foreign-ticket-safe-error",
+      "capturedAt": "2026-10-30T16:13:21.397Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "a7f28c6c92c97a47ac944c5f8eeef49843dba1e34c6c88cc279f835d805bbf7b",
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-dashboard/genuine-empty-desktop.png",
+      "role": "REQUESTER",
+      "state": "genuine-empty",
+      "capturedAt": "2026-10-30T16:13:21.737Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 970
+      },
+      "sha256": "e3f30c782c91bcaa2cfe3beecae5cb7a7e427e490b4b54dd7718dc03e8eebbb3",
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-dashboard/safe-failure-injected-desktop.png",
+      "role": "IT_STAFF",
+      "state": "safe-failure-injected",
+      "capturedAt": "2026-10-30T16:13:22.197Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": "One dashboard GET replaced with labelled HTTP 503; browser renders existing error UI. Not a real backend outage.",
+      "image": {
+        "width": 1280,
+        "height": 800
+      },
+      "sha256": "cce3f642ef31ae31af6ae4bb3e7567d66c90dc4784b4971e6018b4d5e692ce1b",
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-dashboard/operational-tablet.png",
+      "role": "IT_STAFF",
+      "state": "operational",
+      "capturedAt": "2026-10-30T16:13:22.803Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 2193
+      },
+      "sha256": "4ee94f5d6123260cad2b97687d693a86ee0ccb44a95bee117c6e27f714537d4e",
+      "scope": "Full page"
+    },
+    {
+      "file": "workflow/resolution-blocked-no-actions-tablet.png",
+      "role": "IT_STAFF",
+      "state": "resolution-blocked-no-actions",
+      "capturedAt": "2026-10-30T16:13:23.013Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 2797
+      },
+      "sha256": "86eb59d57eebc4bd2b000e3f8ec695e4a890807d9787a969c1c1bf31d6fcb860",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/create-follow-up-validation-tablet.png",
+      "role": "IT_STAFF",
+      "state": "create-follow-up-validation",
+      "capturedAt": "2026-10-30T16:13:23.180Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "28a3ac17b17b1d5021eaf4b392136562c30e1dbac5761546054d4335613abe3e",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "actions-taken/complete-attribution-tablet.png",
+      "role": "IT_STAFF",
+      "state": "complete-attribution",
+      "capturedAt": "2026-10-30T16:13:24.616Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "2cf1ee58f2b372856a678f453784eadd0d92927fcc03db40340b02f90833dead",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "staff-dashboard/administrator-operational-tablet.png",
+      "role": "ADMINISTRATOR",
+      "state": "administrator-operational",
+      "capturedAt": "2026-10-30T16:13:25.387Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 2282
+      },
+      "sha256": "f3e42d2f1da956d447820a8948db2e41202fd55a8278bb8c4a93d60224fcf123",
+      "scope": "Full page"
+    },
+    {
+      "file": "workflow/follow-up-resolution-gate-tablet.png",
+      "role": "IT_STAFF",
+      "state": "follow-up-resolution-gate",
+      "capturedAt": "2026-10-30T16:13:27.657Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 4557
+      },
+      "sha256": "d25293de525e69d10d80db0ad8afeb7989e787b10c2821cbc1dcf113f33c4ae3",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/multiple-actions-and-identities-tablet.png",
+      "role": "IT_STAFF",
+      "state": "multiple-actions-and-identities",
+      "capturedAt": "2026-10-30T16:13:27.798Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 4557
+      },
+      "sha256": "e2e09d538d1c8dcce4305675efa11ae404c1302c5de6cd9b1c278e507ed08213",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/append-only-history-tablet.png",
+      "role": "IT_STAFF",
+      "state": "append-only-history",
+      "capturedAt": "2026-10-30T16:13:28.984Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "dd4f9e8ce90e45d07f3517984f7ceedb799238c6c3902f227e611fd6261d15ba",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "workflow/resolution-confirmation-tablet.png",
+      "role": "IT_STAFF",
+      "state": "resolution-confirmation",
+      "capturedAt": "2026-10-30T16:13:29.098Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "b6d85bcb4d435b6854141c1e2fbdead00aecd5838f5534996b59a23301223ca6",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "workflow/reopened-historical-cycle-tablet.png",
+      "role": "IT_STAFF",
+      "state": "reopened-historical-cycle",
+      "capturedAt": "2026-10-30T16:13:29.682Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 4675
+      },
+      "sha256": "a8fdef66b8904313ed5f55181ce0bc08cea4715964174f06949e512c7ec46651",
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-dashboard/owned-activity-tablet.png",
+      "role": "REQUESTER",
+      "state": "owned-activity",
+      "capturedAt": "2026-10-30T16:13:30.930Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 1218
+      },
+      "sha256": "955ee20322a4363b06a5a8152b19d7ae5b2dd9a3da03e2a3d3326e2b2aa42ad9",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/requester-read-only-tablet.png",
+      "role": "REQUESTER",
+      "state": "requester-read-only",
+      "capturedAt": "2026-10-30T16:13:31.213Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 3619
+      },
+      "sha256": "b4ec9cd218d77fb6389d2b2c927114c7a8b36499213d474aaf652585f68fc578",
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-dashboard/operational-mobile.png",
+      "role": "IT_STAFF",
+      "state": "operational",
+      "capturedAt": "2026-10-30T16:13:31.758Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 2771
+      },
+      "sha256": "c308f1da5a89df9b645f11b79ff8379023d286434c22d95a6b2cdf918a9cce04",
+      "scope": "Full page"
+    },
+    {
+      "file": "workflow/resolution-blocked-no-actions-mobile.png",
+      "role": "IT_STAFF",
+      "state": "resolution-blocked-no-actions",
+      "capturedAt": "2026-10-30T16:13:31.952Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 3872
+      },
+      "sha256": "8cc6350383a9a3e4f6f5cd79e35329436338d9cf1de31d5172760e31c6bda717",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/create-follow-up-validation-mobile.png",
+      "role": "IT_STAFF",
+      "state": "create-follow-up-validation",
+      "capturedAt": "2026-10-30T16:13:32.132Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "ef399f80c95fc31f2cca77b75e22316dc954a8f3914a6715b92ad54d55436908",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "actions-taken/complete-attribution-mobile.png",
+      "role": "IT_STAFF",
+      "state": "complete-attribution",
+      "capturedAt": "2026-10-30T16:13:35.668Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "b566e4a6ed13701846fcc828ffddd68146e228d761b949836e23b60c7e17ae90",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "staff-dashboard/administrator-operational-mobile.png",
+      "role": "ADMINISTRATOR",
+      "state": "administrator-operational",
+      "capturedAt": "2026-10-30T16:13:36.410Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 2899
+      },
+      "sha256": "65ddb51ae06b0c5d580e268a7f5968d2e25b1b1ea135d3360664eeea05eb86da",
+      "scope": "Full page"
+    },
+    {
+      "file": "workflow/follow-up-resolution-gate-mobile.png",
+      "role": "IT_STAFF",
+      "state": "follow-up-resolution-gate",
+      "capturedAt": "2026-10-30T16:13:39.182Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 6774
+      },
+      "sha256": "2159ff018389141ae96f9e59122f82089a714fab7d398d8c29d96f2d0fff71a1",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/multiple-actions-and-identities-mobile.png",
+      "role": "IT_STAFF",
+      "state": "multiple-actions-and-identities",
+      "capturedAt": "2026-10-30T16:13:39.297Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 6774
+      },
+      "sha256": "240ee3a3124f0b4fddc9dc3655dde5731caa64d09abf6dfcdc32d85e0978f492",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/append-only-history-mobile.png",
+      "role": "IT_STAFF",
+      "state": "append-only-history",
+      "capturedAt": "2026-10-30T16:13:42.034Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "a5ca05d4d955be0e5f5d78ce3403ee2af7be75e030d08586cb32a7f773512790",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "workflow/resolution-confirmation-mobile.png",
+      "role": "IT_STAFF",
+      "state": "resolution-confirmation",
+      "capturedAt": "2026-10-30T16:13:42.135Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "6b223e81c87831f6511c0c2622021a895351c2682946edcbe4d7e9786cdd8988",
+      "scope": "Dialog viewport; -bottom file accompanies scrollable dialogs"
+    },
+    {
+      "file": "workflow/reopened-historical-cycle-mobile.png",
+      "role": "IT_STAFF",
+      "state": "reopened-historical-cycle",
+      "capturedAt": "2026-10-30T16:13:42.700Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 6901
+      },
+      "sha256": "ec0c1faed3780ea8e1c3584a14836d78ff78cef4a1e856a8937e4c97aca2e613",
+      "scope": "Full page"
+    },
+    {
+      "file": "requester-dashboard/owned-activity-mobile.png",
+      "role": "REQUESTER",
+      "state": "owned-activity",
+      "capturedAt": "2026-10-30T16:13:43.926Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 1751
+      },
+      "sha256": "2b7cd481020ae59b75b38623c5e38fa3ff0c0d3bc9c01e7af939a124b0158a5c",
+      "scope": "Full page"
+    },
+    {
+      "file": "actions-taken/requester-read-only-mobile.png",
+      "role": "REQUESTER",
+      "state": "requester-read-only",
+      "capturedAt": "2026-10-30T16:13:44.202Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 5413
+      },
+      "sha256": "a36ca06a7a112ef625a68eea6478c118bdea8950c0a83da825e2955aaa9b5543",
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-dashboard/assigned-work-desktop.png",
+      "role": "IT_STAFF",
+      "state": "assigned-work",
+      "capturedAt": "2026-10-30T16:15:19.396Z",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "simulation": null,
+      "image": {
+        "width": 1280,
+        "height": 1840
+      },
+      "sha256": "bad26cf79f203d33be33da72110b650f5467726d7e13e682ccd88728f9a240fa",
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-dashboard/assigned-work-tablet.png",
+      "role": "IT_STAFF",
+      "state": "assigned-work",
+      "capturedAt": "2026-10-30T16:15:20.138Z",
+      "viewport": {
+        "name": "tablet",
+        "width": 768,
+        "height": 1024
+      },
+      "simulation": null,
+      "image": {
+        "width": 768,
+        "height": 2282
+      },
+      "sha256": "138ed2fed0f69b1d20538f67bfc64b742dbf7a7d2323aa91c5ba049b8dc0004b",
+      "scope": "Full page"
+    },
+    {
+      "file": "staff-dashboard/assigned-work-mobile.png",
+      "role": "IT_STAFF",
+      "state": "assigned-work",
+      "capturedAt": "2026-10-30T16:15:20.855Z",
+      "viewport": {
+        "name": "mobile",
+        "width": 375,
+        "height": 812
+      },
+      "simulation": null,
+      "image": {
+        "width": 375,
+        "height": 2882
+      },
+      "sha256": "30a1ac98cc850c57c0db7f0bdecc53beca016a8a9ca86686f215bcda0cb6e1cc",
+      "scope": "Full page"
+    }
+  ],
+  "checks": [
+    {
+      "viewport": "desktop",
+      "kind": "Staff metric/database equality",
+      "actual": 1,
+      "expected": 1,
+      "predicate": "ownerId=session.id AND status in ACTIVE"
+    },
+    {
+      "viewport": "desktop",
+      "kind": "Inactive Staff assignment rejected",
+      "status": 400,
+      "code": "INELIGIBLE_ASSIGNEE"
+    },
+    {
+      "viewport": "desktop",
+      "kind": "Requester metric/database equality",
+      "actual": 1,
+      "expected": 1,
+      "predicate": "requesterId=session.id AND status in ACTIVE"
+    },
+    {
+      "viewport": "desktop",
+      "kind": "Requester operational dashboard denied",
+      "status": 403
+    },
+    {
+      "viewport": "tablet",
+      "kind": "Staff metric/database equality",
+      "actual": 1,
+      "expected": 1,
+      "predicate": "ownerId=session.id AND status in ACTIVE"
+    },
+    {
+      "viewport": "tablet",
+      "kind": "Inactive Staff assignment rejected",
+      "status": 400,
+      "code": "INELIGIBLE_ASSIGNEE"
+    },
+    {
+      "viewport": "tablet",
+      "kind": "Requester metric/database equality",
+      "actual": 1,
+      "expected": 1,
+      "predicate": "requesterId=session.id AND status in ACTIVE"
+    },
+    {
+      "viewport": "tablet",
+      "kind": "Requester operational dashboard denied",
+      "status": 403
+    },
+    {
+      "viewport": "mobile",
+      "kind": "Staff metric/database equality",
+      "actual": 1,
+      "expected": 1,
+      "predicate": "ownerId=session.id AND status in ACTIVE"
+    },
+    {
+      "viewport": "mobile",
+      "kind": "Inactive Staff assignment rejected",
+      "status": 400,
+      "code": "INELIGIBLE_ASSIGNEE"
+    },
+    {
+      "viewport": "mobile",
+      "kind": "Requester metric/database equality",
+      "actual": 1,
+      "expected": 1,
+      "predicate": "requesterId=session.id AND status in ACTIVE"
+    },
+    {
+      "viewport": "mobile",
+      "kind": "Requester operational dashboard denied",
+      "status": 403
+    },
+    {
+      "viewport": "desktop",
+      "kind": "Staff assigned Actions/database equality",
+      "actual": 1,
+      "expected": 1,
+      "predicate": "assigneeId=session.id AND unfinished AND active parent AND current cycle"
+    },
+    {
+      "viewport": "tablet",
+      "kind": "Staff assigned Actions/database equality",
+      "actual": 1,
+      "expected": 1,
+      "predicate": "assigneeId=session.id AND unfinished AND active parent AND current cycle"
+    },
+    {
+      "viewport": "mobile",
+      "kind": "Staff assigned Actions/database equality",
+      "actual": 1,
+      "expected": 1,
+      "predicate": "assigneeId=session.id AND unfinished AND active parent AND current cycle"
+    }
+  ],
+  "runs": [
+    {
+      "command": "npx.cmd playwright test --config playwright.lab4-evidence.config.ts",
+      "capturedAt": "2026-10-30T16:13:44.245Z",
+      "scenarios": [
+        {
+          "title": "Lab 4 release captures at desktop",
+          "status": "passed"
+        },
+        {
+          "title": "Lab 4 release captures at tablet",
+          "status": "passed"
+        },
+        {
+          "title": "Lab 4 release captures at mobile",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "command": "$env:LAB4_EVIDENCE_APPEND='1'; npx.cmd playwright test --config playwright.lab4-evidence.config.ts -g 'Staff assigned work'",
+      "capturedAt": "2026-10-30T16:15:20.880Z",
+      "scenarios": [
+        {
+          "title": "Staff assigned work at desktop",
+          "status": "passed"
+        },
+        {
+          "title": "Staff assigned work at tablet",
+          "status": "passed"
+        },
+        {
+          "title": "Staff assigned work at mobile",
+          "status": "passed"
+        }
+      ]
+    }
+  ],
+  "humanSignOff": "Pending student/peer review"
+}

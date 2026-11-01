@@ -1,3 +1,4 @@
+import type { ListFilters } from "../staff-dashboard-api.js";
 import { useEffect, useState } from "react";
 import { Category, getCategories, getStaffTickets, StaffQueueParams, StaffQueueResponse, StaffTicketRow } from "../api.js";
 
@@ -18,12 +19,12 @@ const statusClass = (status: string) => {
   }
 };
 const initial = { search: "", status: "", categoryId: "", priority: "", itPriority: "", ownerMode: "", ownerId: "",
-  sortBy: "createdAt", sortOrder: "desc", pageSize: "10" };
+  statusGroup: "", updatedFrom: "", updatedTo: "", resolvedFrom: "", resolvedTo: "", sortBy: "createdAt", sortOrder: "desc", pageSize: "10" };
 const ownerLabel = (row: StaffTicketRow) => row.owner ? `${row.owner.name} (${row.owner.role === "IT_STAFF" ? "IT Staff" : "Administrator"})${row.owner.isActive ? "" : " — inactive"}` : "Unassigned";
 const updated = (row: StaffTicketRow) => new Date(row.updatedAt).toLocaleString();
 
-export function StaffTicketQueue({ navigationVersion = 0, onOpenDetail }: { navigationVersion?: number; onOpenDetail?: (ticketId: number) => void }) {
-  const [filters, setFilters] = useState(initial), [page, setPage] = useState(1), [refresh, setRefresh] = useState(0);
+export function StaffTicketQueue({ navigationVersion = 0, onOpenDetail, entry = {}, role = "IT_STAFF" }: { navigationVersion?: number; onOpenDetail?: (ticketId: number) => void; entry?: ListFilters; role?: "IT_STAFF" | "ADMINISTRATOR" }) {
+  const [filters, setFilters] = useState(() => ({ ...initial, ...entry, ownerMode: entry.ownerId ?? "", ownerId: "" })), [page, setPage] = useState(1), [refresh, setRefresh] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]), [categoryError, setCategoryError] = useState(false);
   const [result, setResult] = useState<StaffQueueResponse | null>(null), [loading, setLoading] = useState(true), [error, setError] = useState("");
   const [expanded, setExpanded] = useState(false), [selected, setSelected] = useState<StaffTicketRow | null>(null);
@@ -44,7 +45,10 @@ export function StaffTicketQueue({ navigationVersion = 0, onOpenDetail }: { navi
     // A short delay batches typing; cleanup invalidates in-flight results immediately.
     const timer = setTimeout(() => {
       const params: StaffQueueParams = { search: filters.search.trim(), status: filters.status, categoryId: filters.categoryId ? Number(filters.categoryId) : undefined,
-        priority: filters.priority, itPriority: filters.itPriority, ownerId: filters.ownerMode === "unassigned" ? "unassigned" : filters.ownerMode === "id" ? Number(filters.ownerId) : undefined,
+        priority: filters.priority, itPriority: filters.itPriority, ownerId: filters.ownerMode === "me" ? "me" : filters.ownerMode === "unassigned" ? "unassigned" : filters.ownerMode === "id" ? Number(filters.ownerId) : undefined,
+        ...(filters.statusGroup ? { statusGroup: filters.statusGroup as StaffQueueParams["statusGroup"] } : {}),
+        ...(filters.updatedFrom ? { updatedFrom: filters.updatedFrom, updatedTo: filters.updatedTo } : {}),
+        ...(filters.resolvedFrom ? { resolvedFrom: filters.resolvedFrom, resolvedTo: filters.resolvedTo } : {}),
         sortBy: filters.sortBy, sortOrder: filters.sortOrder as "asc" | "desc", page, pageSize: Number(filters.pageSize) };
       getStaffTickets(params, controller.signal).then(value => { if (active) setResult(value); })
         .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Unable to load the Ticket Queue. Please try again."); })
@@ -52,8 +56,8 @@ export function StaffTicketQueue({ navigationVersion = 0, onOpenDetail }: { navi
     }, 250);
     return () => { active = false; clearTimeout(timer); controller.abort(); };
   }, [filters, page, refresh, validation, navigationVersion]);
-  function change(key: keyof typeof initial, value: string) { setFilters(previous => ({ ...previous, [key]: value })); setPage(1); }
-  const hasFilters = Boolean(filters.search.trim() || filters.status || filters.categoryId || filters.priority || filters.itPriority || filters.ownerMode);
+  function change(key: keyof typeof initial, value: string) { setFilters(previous => ({ ...previous, [key]: value, ...(key === "status" ? { statusGroup: "", resolvedFrom: "", resolvedTo: "" } : key === "statusGroup" ? { status: "", resolvedFrom: "", resolvedTo: "" } : {}) })); setPage(1); }
+  const hasFilters = Boolean(filters.search.trim() || filters.status || filters.categoryId || filters.priority || filters.itPriority || filters.ownerMode || filters.statusGroup || filters.updatedFrom || filters.resolvedFrom);
   function select(key: keyof typeof initial, title: string, options: [string, string][], all = true) {
     return <label className="form-label mb-0" key={key}>{title}<select className="form-select mt-1" value={filters[key]} onChange={event => change(key, event.target.value)}>
       {all && <option value="">All</option>}{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>;
@@ -78,16 +82,18 @@ export function StaffTicketQueue({ navigationVersion = 0, onOpenDetail }: { navi
     </dl>
   </section>;
   return <section className="staff-queue" aria-label="Staff Ticket Queue">
-    <div className="zen-card mb-3"><h1 className="h4">IT Staff Ticket Queue</h1><p className="text-muted">Signed in as IT Staff.</p>
+    <div className="zen-card mb-3"><h1 className="h4">{role === "IT_STAFF" ? "IT Staff" : "Administrator"} Ticket Queue</h1><p className="text-muted">Shared operational Ticket Queue.</p>
+      {hasFilters && <p aria-label="Active queue filters">Active filters: {[filters.statusGroup, filters.status, filters.itPriority, filters.ownerMode, filters.updatedFrom && `Updated from ${filters.updatedFrom} to ${filters.updatedTo} (exclusive)`, filters.resolvedFrom && `Resolved from ${filters.resolvedFrom} to ${filters.resolvedTo} (exclusive)`].filter(Boolean).join("; ")}</p>}
       <label className="form-label w-100">Search tickets<input className="form-control mt-1" type="search" value={filters.search}
         placeholder="Ticket number, summary or description" onChange={event => change("search", event.target.value)} /></label>
       <button className="btn btn-outline-secondary queue-filter-toggle mb-2" aria-expanded={expanded} aria-controls="queue-filters" onClick={() => setExpanded(!expanded)}>Filters and sorting</button>
       <div id="queue-filters" className={"queue-filters " + (expanded ? "is-open" : "")}>
+        {select("statusGroup", "Status group", [["active", "Active"], ["resolved", "Resolved / Closed"]])}
         {select("status", "Status", statuses.map(value => [value, label(value)]))}
         {select("categoryId", "Category", categories.map(value => [String(value.id), value.name]))}
         {select("priority", "Requested Priority", priorities.map(value => [value, label(value)]))}
         {select("itPriority", "IT Priority", priorities.map(value => [value, label(value)]))}
-        {select("ownerMode", "Owner", [["unassigned", "Unassigned"], ["id", "Owner ID"]])}
+        {select("ownerMode", "Owner", [["unassigned", "Unassigned"], ["me", "Me"], ["id", "Owner ID"]])}
         {filters.ownerMode === "id" && <label className="form-label mb-0">Owner ID<input className="form-control mt-1" inputMode="numeric"
           value={filters.ownerId} aria-invalid={Boolean(validation)} onChange={event => change("ownerId", event.target.value)} /></label>}
         {select("sortBy", "Sort By", [["createdAt", "Created"], ["updatedAt", "Last Updated"], ["ticketNumber", "Ticket Number"],

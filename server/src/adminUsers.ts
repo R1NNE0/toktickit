@@ -10,6 +10,7 @@ import {
   validEmail,
 } from "./auth/password.js";
 import { revokeUserSessions } from "./auth/session.js";
+import { retryTransaction, lockEligibility, liveActor, assertCanAdvance } from "./ticketConcurrency.js";
 
 export const adminUserSelect = {
   id: true,
@@ -217,9 +218,10 @@ export async function updateAdminUser(req: Request, res: Response) {
   const prisma = getPrisma();
 
   try {
-    const updated = await prisma.$transaction(async tx => {
+    const updated = await retryTransaction(async tx => {
       // Serialize admin protection checks across concurrent requests
-      await tx.$executeRawUnsafe("SELECT pg_advisory_xact_lock(hashtext('admin_user_protection'))");
+      await lockEligibility(tx, true);
+      await liveActor(tx, req, ["ADMINISTRATOR"]);
 
       const target = await tx.user.findUnique({
         where: { id: targetId },
@@ -282,9 +284,12 @@ export async function updateAdminUser(req: Request, res: Response) {
       const willBeRequester = role === "REQUESTER" || (role === undefined && target.role === "REQUESTER");
 
       if (wasEligibleOwner && (willBeInactive || willBeRequester)) {
+        const owned = await tx.$queryRawUnsafe<{ workflowVersion: number }[]>(
+          'SELECT "workflowVersion" FROM "Ticket" WHERE "ownerId"=$1 ORDER BY id FOR UPDATE', targetId);
+        owned.forEach(assertCanAdvance);
         await tx.ticket.updateMany({
           where: { ownerId: targetId },
-          data: { ownerId: null },
+          data: { ownerId: null, workflowVersion: { increment: 1 } },
         });
       }
 
@@ -340,7 +345,9 @@ export async function resetAdminUserInitialPassword(req: Request, res: Response)
   const passwordHash = await hashPassword(initialPassword);
   const prisma = getPrisma();
 
-  const updated = await prisma.$transaction(async tx => {
+  const updated = await retryTransaction(async tx => {
+    await lockEligibility(tx, true);
+    await liveActor(tx, req, ["ADMINISTRATOR"]);
     const target = await tx.user.findUnique({
       where: { id: targetId },
     });

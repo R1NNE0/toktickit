@@ -42,6 +42,22 @@ enum UserRole {
   ADMINISTRATOR
 }
 
+enum ActionStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ActionRevisionOperation {
+  CREATE
+  EDIT
+  REASSIGN
+  START
+  COMPLETE
+  CANCEL
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   name      String
@@ -61,6 +77,10 @@ model User {
   publicComments PublicComment[] @relation("PublicCommentAuthor")
   internalNotes InternalNote[] @relation("InternalNoteAuthor")
   sessions Session[]
+  createdActionsTaken ActionTaken[] @relation("ActionTakenCreator")
+  assignedActionsTaken ActionTaken[] @relation("ActionTakenAssignee")
+  performedActionsTaken ActionTaken[] @relation("ActionTakenPerformer")
+  actionTakenRevisions ActionTakenRevision[] @relation("ActionTakenRevisionActor")
 
   @@map("RequesterUser")
 }
@@ -123,6 +143,11 @@ model Ticket {
   attachments Attachment[]
   publicComments PublicComment[]
   internalNotes  InternalNote[]
+  actionsTaken ActionTaken[] @relation("TicketActionsTaken")
+
+  workflowVersion Int @default(1)
+  workCycle Int @default(1)
+  resolvedAt DateTime? @db.Timestamptz(3)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -130,6 +155,61 @@ model Ticket {
   @@unique([requesterId, idempotencyKey])
   @@index([requesterId, createdAt(sort: Desc)])
   @@index([requesterId, currentStatus])
+  @@index([ownerId, currentStatus])
+  @@index([currentStatus, itPriority])
+  @@index([updatedAt, id])
+  @@index([requesterId, updatedAt, id])
+  @@index([requesterId, resolvedAt, id])
+}
+
+// SQL CHECK constraints live in the additive Lab 4 migration.
+model ActionTaken {
+  id Int @id @default(autoincrement())
+  ticketId Int
+  ticket Ticket @relation("TicketActionsTaken", fields: [ticketId], references: [id], onDelete: Restrict)
+  cycle Int
+  status ActionStatus @default(PLANNED)
+  description String @db.Text
+  result String? @db.Text
+  assigneeId Int
+  assignee User @relation("ActionTakenAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  createdById Int
+  createdBy User @relation("ActionTakenCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  performedById Int?
+  performedBy User? @relation("ActionTakenPerformer", fields: [performedById], references: [id], onDelete: Restrict)
+  followUpRequired Boolean @default(false)
+  followUpNote String? @db.Text
+  attachmentNotes String? @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
+  cancelledAt DateTime? @db.Timestamptz(3)
+  cancellationReason String? @db.Text
+  version Int @default(1)
+  clientRequestId String @db.Uuid
+  createRequestHash String @db.Char(64)
+  revisions ActionTakenRevision[] @relation("ActionTakenRevisions")
+
+  @@unique([createdById, clientRequestId])
+  @@index([ticketId, cycle, createdAt, id])
+  @@index([ticketId, cycle, status])
+  @@index([assigneeId, status, ticketId])
+}
+
+// Append-only application history; restrictive FKs preserve referenced identities.
+model ActionTakenRevision {
+  id Int @id @default(autoincrement())
+  actionId Int
+  action ActionTaken @relation("ActionTakenRevisions", fields: [actionId], references: [id], onDelete: Restrict)
+  version Int
+  operation ActionRevisionOperation
+  actorId Int
+  actor User @relation("ActionTakenRevisionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  occurredAt DateTime @default(now()) @db.Timestamptz(3)
+  changeReason String? @db.Text
+  snapshot Json
+
+  @@unique([actionId, version])
 }
 
 model Attachment {

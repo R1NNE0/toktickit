@@ -1,4 +1,4 @@
-import { test, expect, login, ticket, navigate, noOverflow, db } from './fixtures.js';
+import { test, expect, login, ticket, navigate, noOverflow, db, completeResolutionAction } from './fixtures.js';
 import { randomUUID } from 'node:crypto';
 for (const viewport of [{ width: 1280, height: 800 }, { width: 768, height: 1024 }, { width: 375, height: 812 }]) {
   test(`RESP-01/02 role screens, keyboard dialogs and long content at ${viewport.width}`, async ({ page, actors }) => {
@@ -24,7 +24,8 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 768, height: 1024
     await page.keyboard.press('Shift+Tab'); await expect.poll(() => page.getByRole('dialog').evaluate(el => el.contains(document.activeElement))).toBe(true);
     await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toHaveCount(0); await expect(trigger).toBeFocused();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-    await login(page, actors.staff); await expect(page.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible(); await noOverflow(page);
+    await login(page, actors.staff); await navigate(page, 'Ticket Queue'); await expect(page.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible(); await noOverflow(page);
+    await completeResolutionAction(page.request, work.id);
     await page.goto('/#/tickets/' + work.id); await expect(page.getByLabel('Next Status')).toBeVisible(); await noOverflow(page);
     await page.getByLabel('Next Status').selectOption('RESOLVED'); await page.getByRole('button', { name: 'Update Status', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveAccessibleName(/Confirm Status Change/); await noOverflow(page);
@@ -33,7 +34,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 768, height: 1024
     await page.getByLabel('Add Attachment').setInputFiles({ name: filename, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 responsive') });
     await expect(page.getByText(filename, { exact: true })).toBeVisible(); await noOverflow(page);
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-    await login(page, actors.admin); await expect(page.getByRole('heading', { name: 'User Management' })).toBeVisible(); await noOverflow(page);
+    await login(page, actors.admin); await navigate(page, 'User Management'); await expect(page.getByRole('heading', { name: 'User Management' })).toBeVisible(); await noOverflow(page);
     if (viewport.width < 768) await expect(page.getByRole('table', { name: 'Users Directory' }).locator('tbody tr').first()).toHaveCSS('display', 'block');
     const create = page.getByRole('button', { name: /Create User/ }); await create.focus(); await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog')).toHaveAccessibleName('Create New User');
@@ -46,7 +47,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 768, height: 1024
   });
 }
 test('RESP-01 queue breakpoint boundaries keep status badges inside their cells', async ({ page, actors }) => {
-  const work = await ticket(actors.requester, { currentStatus: 'WAITING_FOR_REQUESTER' }); await login(page, actors.staff);
+  const work = await ticket(actors.requester, { currentStatus: 'WAITING_FOR_REQUESTER' }); await login(page, actors.staff); await navigate(page, 'Ticket Queue');
   await page.getByLabel('Search tickets').fill(work.ticketNumber);
   await expect(page.getByText('1 matching tickets')).toBeVisible();
   for (const width of [767, 768, 991, 992]) {

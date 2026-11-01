@@ -158,7 +158,7 @@ describe("API-26 Administrator capability view and authorization matrix", () => 
     const updated = await request(app)
       .patch(`/api/staff/tickets/${ticket.id}/priority`)
       .set(headers)
-      .send({ itPriority: targetItPriority })
+      .send({ itPriority: targetItPriority, expectedWorkflowVersion: ticket.workflowVersion })
       .expect(200);
 
     expect(updated.body.itPriority).toBe(targetItPriority);
@@ -173,12 +173,12 @@ describe("API-26 Administrator capability view and authorization matrix", () => 
   it("denies Administrator all operational staff mutations and posting operations", async () => {
     const { ticket, headers } = await adminFixtures();
 
-    // Staff queue
-    await request(app).get("/api/staff/tickets").set(headers).expect(403);
+    // Lab 4 explicitly adds operational reads; mutation denials remain below.
+    await request(app).get("/api/staff/tickets").set(headers).expect(200);
     // Assignees lookup
-    await request(app).get("/api/staff/assignees").set(headers).expect(403);
+    await request(app).get("/api/staff/assignees").set(headers).expect(200);
     // Staff ticket detail alias
-    await request(app).get(`/api/staff/tickets/${ticket.id}`).set(headers).expect(403);
+    await request(app).get(`/api/staff/tickets/${ticket.id}`).set(headers).expect(200);
     // Claim
     await request(app).post(`/api/staff/tickets/${ticket.id}/claim`).set(headers).send({}).expect(403);
     // Reassign

@@ -1,18 +1,20 @@
 ﻿# TokTickIT — IT Service Desk
 
-Course project for CPE 334, KMUTT, semester 1/2026. Lab 3 adds authenticated Requester, IT Staff and Administrator workflows to the preserved Lab 1–2 increment.
+Course project for CPE 334, KMUTT, semester 1/2026. Lab 4 extends the preserved Labs 1–3 application with Actions Taken, transactional Ticket resolution and role-specific dashboards. See the [Lab 4 release guide](docs/lab-04/release.md) and [evidence index](artifacts/lab-04/README.md).
 
 ## Current functionality
 
 - **Authentication:** Argon2id passwords, mandatory initial-password change, opaque PostgreSQL sessions, HttpOnly cookies, CSRF checks, login throttling and logout/revocation. Identity comes from the server session; the development Requester selector and header identity are removed.
-- **Requester:** create Tickets, My Tickets search/filter/sort/pagination, owned detail, attachments, Public Comments and an independent “Problem Appears Resolved” indication.
-- **IT Staff:** shared Queue, claim/assignment, IT Priority, approved status transitions, Public Comments, Internal Notes and permitted attachment operations.
-- **Administrator:** user listing/search/create/edit/activation/initial-password reset and account safeguards. Known-ticket detail, Public Comments, Internal Notes and attachment metadata are readable; IT Priority is editable. Queue, claim, assignment, status changes, discussion posting and attachment upload/download/removal are denied.
+- **Requester:** owned Dashboard (active, waiting, recently resolved/updated Tickets), read-only Actions Taken, create Tickets, My Tickets search/filter/sort/pagination, owned detail, attachments, Public Comments and an independent “Problem Appears Resolved” indication.
+- **IT Staff:** operational Dashboard with personal assigned Actions, shared Queue, claim/assignment, IT Priority, approved status transitions, Public Comments, Internal Notes and permitted attachment operations.
+- **Administrator:** user listing/search/create/edit/activation/initial-password reset and account safeguards. Known-ticket detail, Public Comments, Internal Notes and attachment metadata are readable; IT Priority is editable. Operational Dashboard, Queue and assignee-directory reads plus permitted Actions Taken operations are available. Claim, Ticket owner/status mutations, discussion posting and attachment upload/download/removal remain denied.
+- **Actions Taken:** plan, assign, start, complete, cancel and correct work with distinct creator/assignee/performer attribution and append-only revisions. Only the eligible assignee starts/completes; Requesters see current/historical work on owned Tickets without mutation/history access.
+- **Resolution:** Staff must confirm using current versions, an eligible owner, completed current-cycle work, no unfinished Actions and no outstanding completed follow-ups. Reopen advances the work cycle; Requester indication stays advisory.
 - **Continuity:** IDs, ownership, existing Tickets and Attachments survive forward migrations. Attachment soft removal retains metadata and bytes. Requesters do not change formal Ticket status.
 
-Statuses: NEW, OPEN, IN_PROGRESS, WAITING_FOR_REQUESTER, RESOLVED, CLOSED, REOPENED, CANCELLED. Both priorities: LOW, MEDIUM, HIGH, CRITICAL. The approved [authorization and transition matrices](docs/lab-03/specification.md) remain authoritative.
+Statuses: NEW, OPEN, IN_PROGRESS, WAITING_FOR_REQUESTER, RESOLVED, CLOSED, REOPENED, CANCELLED. Both priorities: LOW, MEDIUM, HIGH, CRITICAL. The approved [Lab 4 authorization and transition matrices](docs/lab-04/specification.md) remain authoritative.
 
-The Issue #36 owner-label blocker was resolved and verified on 2026-09-26: detail responses now include the contract's owner role/isActive fields. Current verification passed **252 backend tests, 87 client tests, 11 E2E tests and both builds**; only the six affected detail/confirmation captures were regenerated. See [tests.md §11](docs/lab-03/tests.md#11-owner-metadata-blocker-correction-2026-09-26). Other documented Partial/manual items and final release approval remain outstanding.
+**Historical Lab 3 verification:** the Issue #36 owner-label blocker was resolved and verified on 2026-09-26: detail responses now include the contract's owner role/isActive fields. Current verification passed **252 backend tests, 87 client tests, 11 E2E tests and both builds**; only the six affected detail/confirmation captures were regenerated. See [tests.md §11](docs/lab-03/tests.md#11-owner-metadata-blocker-correction-2026-09-26). Other documented Partial/manual items and final release approval remain outstanding.
 
 ## Stack and structure
 
@@ -25,11 +27,12 @@ client/src/tests/lab-02/        Retained Lab 2 component tests
 server/src/                    Express app, auth, policy, query and workflow modules
 server/prisma/                 Mapped User schema, additive migrations, create-only seed
 server/scripts/                Forward auth migration and private credential handover
-server/tests/lab-01..03/        API/unit/security/migration/regression tests
-e2e/lab-03/                    Real-browser regression specs and isolated fixtures
+server/tests/lab-01..04/        API/unit/security/migration/regression tests
+e2e/lab-03/, e2e/lab-04/        Retained and Lab 4 browser journeys; isolated fixtures
 e2e/evidence/                  Opt-in screenshot capture using the same application/fixtures
-docs/lab-01..03/               Contracts, tests and student-owned delivery records
-artifacts/lab-03/screenshots/   Sanitized visual evidence and index
+docs/lab-01..04/               Contracts, tests and student-owned delivery records
+artifacts/lab-03/screenshots/   Preserved historical evidence
+artifacts/lab-04/               Current release evidence and screenshot manifest
 docker-compose.yml             Development PostgreSQL on localhost:5433
 ```
 
@@ -92,6 +95,7 @@ $env:DATABASE_URL='postgresql://lab3_test:lab3_test_local@127.0.0.1:55433/toktic
 $env:NODE_ENV='test'
 $env:TEST_UPLOAD_ROOT='uploads/lab-03-test'
 $env:AUTH_ALLOW_HTTP_LOCALHOST='true'
+$env:FRONTEND_ORIGIN='http://localhost:5173'
 npm test                 # All Lab 1–3 backend suites
 npm run test:lab3        # Lab 3 plus retained Lab 1; excludes Lab 2 suites
 ```
@@ -106,7 +110,7 @@ npm test
 
 `e2e/playwright.config.ts` explicitly targets **`e2e/lab-03/`**. It supplies the isolated database and starts separate API/UI listeners on **3101/5174**. It refuses an unexpected DATABASE_URL or existing listeners. Run backend and browser tests sequentially against their shared disposable database. Browser accounts/passwords are generated in memory; personal seed credentials are not needed.
 
-Visual capture is opt-in and separate from the 11 regression scenarios:
+The following **historical Lab 3** visual-capture command is preserved as reference. It writes Lab 3 screenshots; do not run it for Lab 4 release evidence. Lab 4 uses `playwright.lab4-evidence.config.ts` as documented in the release guide.
 
 ```powershell
 # From e2e; same isolated database, fixtures and server guards
@@ -119,9 +123,11 @@ See the [screenshot index](artifacts/lab-03/screenshots/README.md) for states, d
 
 Issue #35 runs on 2026-09-19–20 passed **249 backend tests (25 files), 83 client tests (16 files), and 11 Chromium E2E scenarios (5 specs)** with zero failures/skips. Both builds passed. Issue #36 confirmed that all 113 tracked implementation/test/configuration files match that integrated baseline before evidence preparation. These are local results, not a claim that the future final `main` revision passed. [tests.md](docs/lab-03/tests.md) distinguishes passed cases, partial planned coverage and manual delivery items.
 
-Run `npm run build` separately in `server` and `client`. Backend output entry: `server/dist/src/index.js`; from `server`, with environment configured, use `node dist/src/index.js`. The existing `npm start` references the older `dist/index.js` layout; this documentation-only increment documents the correct entry without changing package behavior. Client output: `client/dist/` (`npm run preview` previews it locally; configure the matching API origin for authenticated preview requests).
+Run `npm run build` separately in `server` and `client`. Backend output entry: `server/dist/src/index.js`; from `server`, with environment configured, use `node dist/src/index.js`. `npm start` now uses that same built entry; Issue #54 verified health and an authenticated read from the production build. Client output: `client/dist/` (`npm run preview` previews it locally; configure the matching API origin for authenticated preview requests).
 
 ## API and documentation
+
+Current Lab 4 additions include `/api/dashboard/requester`, `/api/dashboard/staff`, `/api/tickets/:id/actions` and the paginated `/api/staff/actions` operational view. See the [Lab 4 specification](docs/lab-04/specification.md), [API](docs/lab-04/api-spec.md), [UI](docs/lab-04/ui-spec.md), [test plan](docs/lab-04/tests.md) and [release/evidence guide](docs/lab-04/release.md). The Lab 3 links below remain historical documentation.
 
 Authentication uses `/api/auth/csrf`, `/api/auth/login`, `/api/auth/me`, `/api/auth/change-password` and `/api/auth/logout`. Requester Tickets use `/api/tickets`; Staff operations use `/api/staff`; Administrator accounts use `/api/admin/users`. Ticket creation is JSON followed by separate multipart attachment uploads. There is no public persona directory or Requester Ticket-cancellation endpoint. Non-sensitive Lab 1 health/categories remain available.
 
@@ -133,12 +139,14 @@ Authentication uses `/api/auth/csrf`, `/api/auth/login`, `/api/auth/me`, `/api/a
 - [Reviewer record](docs/lab-03/reviewer.md) and [AI-use reflection](docs/lab-03/ai-use.md): reserved for the student's manual completion; intentionally untouched in Issue #36.
 - Historical [Lab 1](docs/lab-01/) and [Lab 2](docs/lab-02/) documents remain prior-increment evidence.
 
-## Human release checklist
+## Lab 4 release and submission
 
-Required flow: **feature PR -> `lab3-staging` -> reviewed release PR -> `main`**. This work creates no PR, approval, merge or GitHub state change.
+Required flow: **Feature Branch -> Pull Request -> Peer Review -> `lab4-staging` -> `main`**. Git operations and approvals belong to the student.
 
-- Review Issue #36 documentation/screenshots and resolve the partial technical coverage/visual findings in `tests.md` before claiming every AC complete.
-- Complete `reviewer.md` with actual bilateral review evidence and `ai-use.md` with 6–10 useful real prompts and the student's reflection.
-- Obtain required feature review and integrate approved work into `lab3-staging`, then create/review the release PR **from `lab3-staging` to `main`**.
-- After the actual merge, verify final `main` using the documented isolated tests/builds; retain complete output and its actual revision. Confirm the real Issue board/history and approvals.
-- Prepare the course PDF with **Answer Part 1** through **Answer Part 9** in order, linking final repository, board/reviews, contracts, tests, manually completed records and readable screenshots. Do not present workspace evidence as future final-main evidence.
+- Follow [release/setup/recovery instructions](docs/lab-04/release.md).
+- Use the [Lab 4 evidence and submission index](artifacts/lab-04/README.md), which distinguishes verified workspace results from pending final-main evidence.
+- Complete the student-managed `docs/lab-04/reviewer.md` and `ai-use.md` manually with actual reviews, 6–10 selected prompts, and personal reflection.
+- After the actual reviewed merge to `main`, retain its real revision and complete passing output. Earlier workspace results are not final-main results.
+- Submit exactly one readable PDF using **Answer Part 1** through **Answer Part 9** in order, with working repository/board/PR/document/evidence links and human visual sign-off.
+
+The approved engineering contract retains its original planning register. Actual later outcomes are recorded separately in [Issue #54 results](artifacts/lab-04/verification/issue-54-results.json) and the release evidence index. Historical Lab 3 delivery records above remain historical evidence.

@@ -1,7 +1,8 @@
-import { test, expect, login, ticket, apiURL, mutation, db } from './fixtures.js';
+import { test, expect, login, ticket, apiURL, mutation, db, navigate } from './fixtures.js';
 import { randomUUID } from 'node:crypto';
 test('E2E-03 account create/edit/reset, mandatory change, deactivation and safety', async ({ page, browser, actors }) => {
   await login(page, actors.admin);
+  await navigate(page, 'User Management');
   const email = randomUUID() + '@example.com', initial = 'Initial ' + randomUUID(), reset = 'Reset ' + randomUUID();
   let createdId: number | undefined;
   const context = await browser.newContext({ baseURL: 'http://localhost:5174' }), userPage = await context.newPage();
@@ -46,6 +47,7 @@ test('E2E-03 account create/edit/reset, mandatory change, deactivation and safet
     await expect.poll(async () => (await db.user.findUniqueOrThrow({ where: { id: createdId } })).role).toBe('IT_STAFF');
     expect((await userPage.request.get(apiURL + '/api/tickets')).status()).toBe(401);
     await login(userPage, { id: createdId, name: '', email, password: changed });
+    await navigate(userPage, 'Ticket Queue');
     await expect(userPage.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible();
     await page.getByRole('button', { name: 'Edit user Browser edited account' }).click();
     await dialog.getByLabel('Active Account').uncheck(); await dialog.getByRole('button', { name: 'Save Changes' }).click();
@@ -69,8 +71,26 @@ test('E2E-05 Administrator may read ticket discussions and edit IT Priority with
   await page.getByLabel('IT Priority', { exact: true }).selectOption('LOW'); await page.getByRole('button', { name: 'Save Priority' }).click();
   await expect.poll(async () => (await db.ticket.findUniqueOrThrow({ where: { id: work.id } })).itPriority).toBe('LOW');
   expect((await db.ticket.findUniqueOrThrow({ where: { id: work.id } })).requestedPriority).toBe('HIGH');
-  for (const path of ['/staff/tickets', '/staff/assignees', `/staff/tickets/${work.id}`, '/attachments/2147483647/download'])
-    expect((await page.request.get(apiURL + '/api' + path)).status()).toBe(403);
+  // Lab 4 API §4 permits these operational reads, without Staff mutation inheritance.
+  const queue = await page.request.get(apiURL + '/api/staff/tickets', { params: { search: work.ticketNumber } });
+  expect(queue.status()).toBe(200);
+  const queueBody = await queue.json();
+  expect(queueBody.pagination.totalItems).toBe(1);
+  expect(queueBody.data).toEqual([expect.objectContaining({ id: work.id, itPriority: 'LOW' })]);
+  const detail = await page.request.get(apiURL + `/api/staff/tickets/${work.id}`);
+  expect(detail.status()).toBe(200);
+  expect(await detail.json()).toMatchObject({ id: work.id, ownerId: actors.staff.id, itPriority: 'LOW' });
+  const directory = await page.request.get(apiURL + '/api/staff/assignees');
+  expect(directory.status()).toBe(200);
+  const assignees = await directory.json();
+  expect(assignees).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: actors.staff.id }), expect.objectContaining({ id: actors.admin.id }),
+  ]));
+  for (const assignee of assignees) {
+    expect(Object.keys(assignee).sort()).toEqual(['id', 'isActive', 'name', 'role']);
+    expect(assignee.isActive).toBe(true); expect(['IT_STAFF', 'ADMINISTRATOR']).toContain(assignee.role);
+  }
+  expect((await page.request.get(apiURL + '/api/attachments/2147483647/download')).status()).toBe(403);
   for (const [method, path, data] of [
     ['POST', `/staff/tickets/${work.id}/claim`, {}], ['PATCH', `/staff/tickets/${work.id}/owner`, { ownerId: actors.admin.id }],
     ['PATCH', `/staff/tickets/${work.id}/status`, { currentStatus: 'OPEN' }], ['POST', `/tickets/${work.id}/comments`, { body: 'Not allowed' }],
